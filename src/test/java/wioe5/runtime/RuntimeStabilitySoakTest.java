@@ -1,7 +1,13 @@
 package wioe5.runtime;
 
 public final class RuntimeStabilitySoakTest {
-    private static final int SIMULATED_TOTAL_MILLIS = 24 * 60 * 60 * 1000;
+    private static final int HOURS_PER_DAY = 24;
+    private static final int MINUTES_PER_HOUR = 60;
+    private static final int SECONDS_PER_MINUTE = 60;
+    private static final int MILLIS_PER_SECOND = 1000;
+
+    private static final int SIMULATED_TOTAL_MILLIS =
+            HOURS_PER_DAY * MINUTES_PER_HOUR * SECONDS_PER_MINUTE * MILLIS_PER_SECOND;
     private static final int LOOP_PERIOD_MILLIS = 1000;
     private static final int ITERATIONS = SIMULATED_TOTAL_MILLIS / LOOP_PERIOD_MILLIS;
 
