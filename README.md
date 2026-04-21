@@ -39,6 +39,8 @@ docs/
   runtime-module-boundaries.md
   runtime-bytecode-subset.md
   runtime-frame-stack-model.md
+  runtime-heap-gc-model.md
+  runtime-stability-soak.md
 src/main/java/wioe5/
   bus/      io/      lora/      runtime/      storage/      system/
 src/test/java/wioe5/runtime/
@@ -62,6 +64,8 @@ javac -d build/test-classes $(find src/main/java -name '*.java' | sort) $(find s
 java -cp build/test-classes wioe5.runtime.RuntimeModuleRegistryTest
 java -cp build/test-classes wioe5.runtime.BytecodeInterpreterModuleTest
 java -cp build/test-classes wioe5.runtime.DeterministicFrameStackModuleTest
+java -cp build/test-classes wioe5.runtime.DeterministicHeapManagerModuleTest
+java -cp build/test-classes wioe5.runtime.RuntimeStabilitySoakTest
 ```
 
 ## Key documentation
@@ -70,6 +74,8 @@ java -cp build/test-classes wioe5.runtime.DeterministicFrameStackModuleTest
 - Runtime module contracts: `docs/runtime-module-boundaries.md`
 - Supported bytecode subset and interpreter errors: `docs/runtime-bytecode-subset.md`
 - Frame/stack deterministic model: `docs/runtime-frame-stack-model.md`
+- Heap and GC deterministic model: `docs/runtime-heap-gc-model.md`
+- Runtime long-loop soak profile: `docs/runtime-stability-soak.md`
 - Delivery roadmap and status tracking: `plan/production-readiness-implementation-plan.md`, `plan/progress-tracking.md`
 
 ## Notes

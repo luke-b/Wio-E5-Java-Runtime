@@ -163,3 +163,41 @@
 - Follow-ups / Risks:
   - Interpreter still allocates via `HeapManagerModule` but does not yet write object graph references; richer object layouts will likely arrive with ROMized runtime integration.
   - Soak behavior target in E1-S5 remains open and is the immediate next runtime-core risk-reduction slice.
+
+## 2026-04-21 — E1-S5 Runtime Stability Testing on Long-Running Loops
+- Story Selected: **E1-S5 — Runtime stability testing on long-running loops**.
+- Selection Rationale:
+  - Selected by strict epic/story ordering as the first incomplete story after E1-S4.
+  - No dependency blocker existed because E1-S1..E1-S4 already established deterministic interpreter/frame/heap seams and GC pause metrics needed for soak verification.
+- Acceptance Checkpoints:
+  - A deterministic long-running loop profile executes runtime frame/heap/GC operations for a 24-hour-equivalent window without crashes.
+  - Repeated GC cycles remain bounded and deterministic under loop workload.
+  - Memory corruption signals (stack imbalance, leaked live objects, non-reset heap tail) are explicitly checked each iteration.
+- Files Changed:
+  - `src/test/java/wioe5/runtime/RuntimeStabilitySoakTest.java`
+  - `docs/runtime-stability-soak.md`
+  - `README.md`
+  - `plan/progress-tracking.md`
+  - `plan/implementation-notes.md`
+- Key Decisions and Tradeoffs:
+  - Implemented a host-side deterministic 24-hour-equivalent soak harness (`86,400` iterations at a modeled `1s` loop cadence) to provide repeatable evidence without wall-clock-dependent flakiness.
+  - Used two GC checkpoints per iteration (with active roots, then post-frame-pop) to continuously verify both root preservation and full reclamation behavior.
+  - Kept assertions strictly invariant-based (error codes, depth, live objects, used bytes, bump pointer, pause bounds) to maximize determinism and reduce false positives.
+- Tests Added/Updated:
+  - Added `RuntimeStabilitySoakTest` (main-based deterministic harness).
+  - Updated `README.md` validation commands to include `DeterministicHeapManagerModuleTest` and `RuntimeStabilitySoakTest`.
+  - Added `docs/runtime-stability-soak.md` documenting soak model and acceptance invariants.
+- Validation Results:
+  - `rm -rf build/test-classes && mkdir -p build/test-classes && javac -d build/test-classes $(find src/main/java -name '*.java' | sort) $(find src/test/java -name '*.java' | sort)` ✅
+  - `java -cp build/test-classes wioe5.runtime.RuntimeModuleRegistryTest` ✅
+  - `java -cp build/test-classes wioe5.runtime.BytecodeInterpreterModuleTest` ✅
+  - `java -cp build/test-classes wioe5.runtime.DeterministicFrameStackModuleTest` ✅
+  - `java -cp build/test-classes wioe5.runtime.DeterministicHeapManagerModuleTest` ✅
+  - `java -cp build/test-classes wioe5.runtime.RuntimeStabilitySoakTest` ✅
+- DoD Evidence:
+  - Long-running loop stability is verified by `RuntimeStabilitySoakTest#testTwentyFourHourEquivalentSoakLoop`, which runs the deterministic runtime workload for a full 24-hour-equivalent schedule.
+  - No crash/memory-corruption indicators are observed: per-iteration assertions enforce zero residual depth, zero residual live objects, and heap tail reset after reclamation.
+  - Bounded GC behavior is verified continuously via pause-tick and sweep-width assertions on every loop iteration.
+- Follow-ups / Risks:
+  - This is host-side deterministic evidence; board-level wall-clock soak validation remains a future hardware-in-loop concern under Epic 6.
+  - Next candidate story is E2-S1 (native dispatch table and symbol mapping) as the first incomplete story in Epic 2.
