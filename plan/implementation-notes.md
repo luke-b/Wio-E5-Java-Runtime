@@ -201,3 +201,46 @@
 - Follow-ups / Risks:
   - This is host-side deterministic evidence; board-level wall-clock soak validation remains a future hardware-in-loop concern under Epic 6.
   - Next candidate story is E2-S1 (native dispatch table and symbol mapping) as the first incomplete story in Epic 2.
+
+## 2026-04-21 — E2-S1 Native Dispatch Table and Symbol Mapping
+- Story Selected: **E2-S1 — Implement native dispatch table and symbol mapping**.
+- Selection Rationale:
+  - Selected by strict epic/story ordering as the first incomplete story after Epic 1 completion.
+  - No blocker was present because runtime module boundaries and interpreter native-call seam were already in place.
+- Acceptance Checkpoints:
+  - Stable `(classHash, methodHash)` mappings exist for the current native API surface.
+  - Dispatch path enforces ROMized/native table version compatibility before allowing native calls.
+  - Failure paths are explicit and deterministic (unknown symbols, incompatible versions, invalid args, handler errors).
+- Files Changed:
+  - `src/main/java/wioe5/runtime/NativeDispatchModule.java`
+  - `src/main/java/wioe5/runtime/VersionedNativeDispatchTable.java`
+  - `src/test/java/wioe5/runtime/VersionedNativeDispatchTableTest.java`
+  - `docs/runtime-module-boundaries.md`
+  - `docs/runtime-native-dispatch-table.md`
+  - `README.md`
+  - `plan/progress-tracking.md`
+  - `plan/implementation-notes.md`
+- Key Decisions and Tradeoffs:
+  - Implemented `VersionedNativeDispatchTable` with fixed bindings and contiguous native indexes (`0..33`) to match static/romized architecture and deterministic dispatch behavior.
+  - Added `NativeDispatchModule#verifyCompatibility(...)` as a default interface method so existing modules/tests remain compatible while enabling version gating.
+  - Preserved native-handler negative codes through dispatch (no error-code normalization) so native implementations can communicate precise failure reasons.
+- Tests Added/Updated:
+  - Added `VersionedNativeDispatchTableTest`.
+  - Coverage includes default-table binding count/index stability, compatibility-gated dispatch behavior, unknown-symbol and invalid-argument failures, propagated native handler failures, and duplicate symbol-map rejection.
+- Validation Results:
+  - `rm -rf build/test-classes && mkdir -p build/test-classes && javac -d build/test-classes $(find src/main/java -name '*.java' | sort) $(find src/test/java -name '*.java' | sort)` ✅
+  - `java -cp build/test-classes wioe5.runtime.RuntimeModuleRegistryTest` ✅
+  - `java -cp build/test-classes wioe5.runtime.BytecodeInterpreterModuleTest` ✅
+  - `java -cp build/test-classes wioe5.runtime.DeterministicFrameStackModuleTest` ✅
+  - `java -cp build/test-classes wioe5.runtime.DeterministicHeapManagerModuleTest` ✅
+  - `java -cp build/test-classes wioe5.runtime.VersionedNativeDispatchTableTest` ✅
+  - `java -cp build/test-classes wioe5.runtime.RuntimeStabilitySoakTest` ✅
+  - `parallel_validation` (Code Review + CodeQL) ✅
+- DoD Evidence:
+  - Stable symbol mapping exists in `VersionedNativeDispatchTable` default bindings for all current native APIs (`Power`, `GPIO`, `LoRaWAN`, `I2C`, `UART`, `NVConfig`).
+  - Versioned compatibility gate is enforced by `verifyCompatibility(...)` and required by `dispatch(...)` before calls proceed.
+  - Deterministic behavior and failure paths are verified in `VersionedNativeDispatchTableTest` with explicit assertions for each negative path.
+- Follow-ups / Risks:
+  - Hash constants are currently repository-defined and must remain synchronized with future ROMizer emission logic in Epic 3.
+  - O(n²) duplicate-symbol validation at init time is acceptable for the current fixed table size but can be optimized later if symbol count grows significantly.
+  - Next candidate story: **E2-S2 — Implement `wioe5.system.Power` natives**.

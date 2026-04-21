@@ -33,7 +33,7 @@ Production readiness is achieved when:
 
 | Story ID | Story | DoD | Status |
 |---|---|---|---|
-| E2-S1 | Implement native dispatch table and symbol mapping | Stable `(class,method)` to native index mapping exists, with versioned compatibility checks | ⬜ Not Started |
+| E2-S1 | Implement native dispatch table and symbol mapping | Stable `(class,method)` to native index mapping exists, with versioned compatibility checks | ✅ Completed |
 | E2-S2 | Implement `wioe5.system.Power` natives | Deep sleep, wake restore, watchdog, battery read, timing APIs validated on target board | ⬜ Not Started |
 | E2-S3 | Implement `wioe5.io.GPIO`, `wioe5.bus.I2C`, `wioe5.bus.UART` natives | Pin/bus correctness validated with hardware loopback and sensor tests; error codes standardized | ⬜ Not Started |
 | E2-S4 | Implement `wioe5.lora.LoRaWAN` natives and process loop contract | Join/send/downlink/status flow stable under packet loss and duty-cycle constraints | ⬜ Not Started |
@@ -104,7 +104,7 @@ Production readiness is achieved when:
 | Epic | Owner | Status | Completion |
 |---|---|---|---|
 | Epic 1 — Runtime Core | TBD | ⬜ Not Started | 0% |
-| Epic 2 — Native Binding/HAL | TBD | ⬜ Not Started | 0% |
+| Epic 2 — Native Binding/HAL | TBD | 🟡 In Progress | 20% |
 | Epic 3 — ROMizer/Build | TBD | ⬜ Not Started | 0% |
 | Epic 4 — OTA | TBD | ⬜ Not Started | 0% |
 | Epic 5 — Security | TBD | ⬜ Not Started | 0% |

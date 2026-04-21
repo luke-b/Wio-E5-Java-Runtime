@@ -40,6 +40,7 @@ docs/
   runtime-bytecode-subset.md
   runtime-frame-stack-model.md
   runtime-heap-gc-model.md
+  runtime-native-dispatch-table.md
   runtime-stability-soak.md
 src/main/java/wioe5/
   bus/      io/      lora/      runtime/      storage/      system/
@@ -47,6 +48,7 @@ src/test/java/wioe5/runtime/
   RuntimeModuleRegistryTest.java
   BytecodeInterpreterModuleTest.java
   DeterministicFrameStackModuleTest.java
+  VersionedNativeDispatchTableTest.java
 plan/
   production-readiness-implementation-plan.md
   progress-tracking.md
@@ -65,6 +67,7 @@ java -cp build/test-classes wioe5.runtime.RuntimeModuleRegistryTest
 java -cp build/test-classes wioe5.runtime.BytecodeInterpreterModuleTest
 java -cp build/test-classes wioe5.runtime.DeterministicFrameStackModuleTest
 java -cp build/test-classes wioe5.runtime.DeterministicHeapManagerModuleTest
+java -cp build/test-classes wioe5.runtime.VersionedNativeDispatchTableTest
 java -cp build/test-classes wioe5.runtime.RuntimeStabilitySoakTest
 ```
 
@@ -75,6 +78,7 @@ java -cp build/test-classes wioe5.runtime.RuntimeStabilitySoakTest
 - Supported bytecode subset and interpreter errors: `docs/runtime-bytecode-subset.md`
 - Frame/stack deterministic model: `docs/runtime-frame-stack-model.md`
 - Heap and GC deterministic model: `docs/runtime-heap-gc-model.md`
+- Native binding dispatch table and compatibility contract: `docs/runtime-native-dispatch-table.md`
 - Runtime long-loop soak profile: `docs/runtime-stability-soak.md`
 - Delivery roadmap and status tracking: `plan/production-readiness-implementation-plan.md`, `plan/progress-tracking.md`
 
