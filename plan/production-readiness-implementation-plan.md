@@ -1,11 +1,11 @@
 # Wio-E5 Java Runtime Production Readiness Implementation Plan
 
 ## 1) Project Goal
-Deliver a production-ready embedded Java runtime for Seeed Studio Wio-E5 (STM32WLE5JC) that securely and reliably runs romized Java applications over LoRaWAN under strict Flash/SRAM/power constraints, with a validated runtime core, native hardware bindings, OTA lifecycle, and manufacturing-grade operational tooling.
+Deliver a production-ready embedded Java runtime for Seeed Studio Wio-E5 (STM32WLE5JC) that securely and reliably runs ROMized Java applications over LoRaWAN under strict Flash/SRAM/power constraints, with a validated runtime core, native hardware bindings, OTA lifecycle, and manufacturing-grade operational tooling.
 
 ## 2) Current State Summary (Architecture vs Codebase)
 - **Available now:** Java API surface stubs (`static native`) for `Power`, `GPIO`, `LoRaWAN`, `I2C`, `UART`, and `NVConfig`.
-- **Missing for production:** JVM/interpreter implementation, GC/runtime memory manager, romizer pipeline, C native bridge implementations, OTA update pipeline, secure boot/slot controls, provisioning flow, test strategy, CI/CD, and release/operations hardening.
+- **Missing for production:** JVM/interpreter implementation, GC/runtime memory manager, ROMizer pipeline, C native bridge implementations, OTA update pipeline, secure boot/slot controls, provisioning flow, test strategy, CI/CD, and release/operations hardening.
 
 ## 3) Scope and Readiness Outcomes
 Production readiness is achieved when:
@@ -39,12 +39,12 @@ Production readiness is achieved when:
 | E2-S4 | Implement `wioe5.lora.LoRaWAN` natives and process loop contract | Join/send/downlink/status flow stable under packet loss and duty-cycle constraints | ⬜ Not Started |
 | E2-S5 | Implement `wioe5.storage.NVConfig` with wear-aware writes | Key/value persistence survives reset/power cycle with data integrity checks | ⬜ Not Started |
 
-### Epic 3 — Romizer and Build Pipeline
+### Epic 3 — ROMizer and Build Pipeline
 **Objective:** Enable deterministic compilation from Java source to deployable runtime image.
 
 | Story ID | Story | DoD | Status |
 |---|---|---|---|
-| E3-S1 | Implement romizer for class table/bytecode/native/static sections | Romized artifact format matches runtime loader expectations and passes validation tools | ⬜ Not Started |
+| E3-S1 | Implement ROMizer for class table/bytecode/native/static sections | ROMized artifact format matches runtime loader expectations and passes validation tools | ⬜ Not Started |
 | E3-S2 | Deterministic build orchestration for Java + C outputs | Reproducible builds generate identical artifacts from same input/toolchain versions | ⬜ Not Started |
 | E3-S3 | Memory budget enforcement gates | Build fails when flash/sram thresholds are exceeded; reports include per-section usage | ⬜ Not Started |
 | E3-S4 | Developer onboarding build docs | End-to-end build/flash workflow is documented and repeatable on clean environment | ⬜ Not Started |
@@ -105,7 +105,7 @@ Production readiness is achieved when:
 |---|---|---|---|
 | Epic 1 — Runtime Core | TBD | ⬜ Not Started | 0% |
 | Epic 2 — Native Binding/HAL | TBD | ⬜ Not Started | 0% |
-| Epic 3 — Romizer/Build | TBD | ⬜ Not Started | 0% |
+| Epic 3 — ROMizer/Build | TBD | ⬜ Not Started | 0% |
 | Epic 4 — OTA | TBD | ⬜ Not Started | 0% |
 | Epic 5 — Security | TBD | ⬜ Not Started | 0% |
 | Epic 6 — Verification/CI | TBD | ⬜ Not Started | 0% |
