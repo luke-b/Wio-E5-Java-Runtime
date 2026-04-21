@@ -22,7 +22,10 @@ This document defines the runtime-core module boundaries required by the archite
     - Owns `(classHash, methodHash)` dispatch contract to native bindings.
     - Provides deterministic return-code contract for runtime callers.
    - `VersionedNativeDispatchTable` provides a stable symbol mapping plus
-     ROMized/native table-version compatibility gate.
+      ROMized/native table-version compatibility gate.
+    - `DeterministicPowerNativeModule` provides deterministic host-side
+      behavior for `wioe5.system.Power` handlers and binds the `Power` dispatch
+      indices (`0..5`) in the versioned native table.
 
 5. **RuntimeModuleRegistry**
    - Owns immutable runtime wiring and integration-point validation.
