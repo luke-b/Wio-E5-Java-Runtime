@@ -11,6 +11,7 @@ This document defines the runtime-core module boundaries required by the archite
 2. **FrameStackModule**
    - Owns frame push/pop lifecycle and depth constraints.
    - Exposes frame depth information needed by runtime checks and GC root discovery.
+   - `DeterministicFrameStackModule` provides fixed-capacity frame/local/operand enforcement for constrained targets.
 
 3. **HeapManagerModule**
    - Owns allocation and garbage-collection entry point.

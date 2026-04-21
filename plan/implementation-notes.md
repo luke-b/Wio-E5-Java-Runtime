@@ -82,3 +82,40 @@
 - Follow-ups / Risks:
   - Next story E1-S3 should formalize runtime frame model and enforce frame/operand/local slot constraints through concrete frame-stack state integration.
   - Current interpreter encodes immediate operands directly in bytecode test programs; ROMized metadata binding is deferred to Epic 3 (ROMizer).
+
+## 2026-04-21 — E1-S3 Frame/Stack Model
+- Story Selected: **E1-S3 — Implement frame/stack model**.
+- Selection Rationale:
+  - Selected by strict epic/story priority order as the first incomplete story after E1-S2.
+  - No dependency blocker existed because E1-S1/E1-S2 already established runtime module interfaces and deterministic test harness patterns.
+- Acceptance Checkpoints:
+  - Max frame depth is explicitly enforced with deterministic overflow/underflow error behavior.
+  - Operand/local slot bounds are enforced per active frame with explicit negative-path error codes.
+  - Fixed-capacity frame model remains deterministic and cooperative (no runtime resizing/allocation) and reset behavior on frame pop is defined.
+- Files Changed:
+  - `src/main/java/wioe5/runtime/FrameStackModule.java`
+  - `src/main/java/wioe5/runtime/DeterministicFrameStackModule.java`
+  - `src/test/java/wioe5/runtime/DeterministicFrameStackModuleTest.java`
+  - `docs/runtime-module-boundaries.md`
+  - `docs/runtime-frame-stack-model.md`
+  - `plan/progress-tracking.md`
+  - `plan/implementation-notes.md`
+- Key Decisions and Tradeoffs:
+  - Introduced `DeterministicFrameStackModule` as a fixed-capacity implementation using pre-allocated frame/local/operand arrays to preserve deterministic memory behavior under Wio-E5 constraints.
+  - Added per-frame slot limits (`pushFrame(methodId, localSlots, operandSlots)`) while preserving the existing interface contract (`pushFrame(methodId)`) for compatibility.
+  - Chose bounded explicit return-code errors (instead of exceptions during hot paths) for overflow/underflow/slot violations to support safety-first runtime fault handling.
+- Tests Added/Updated:
+  - Added `DeterministicFrameStackModuleTest` (main-based deterministic harness).
+  - Coverage includes frame depth overflow/underflow, local slot bounds, operand stack overflow/underflow, frame memory reset on pop/reuse, and invalid frame slot configuration.
+- Validation Results:
+  - `javac -d build/test-classes $(find src/main/java src/test/java -name '*.java')` ✅
+  - `java -cp build/test-classes wioe5.runtime.RuntimeModuleRegistryTest` ✅
+  - `java -cp build/test-classes wioe5.runtime.BytecodeInterpreterModuleTest` ✅
+  - `java -cp build/test-classes wioe5.runtime.DeterministicFrameStackModuleTest` ✅
+- DoD Evidence:
+  - Max frame depth and underflow behavior are enforced in `DeterministicFrameStackModule#pushFrame/popFrame` and verified in `testFrameDepthBoundaries` and `testFrameUnderflow`.
+  - Operand/local slot rule enforcement is implemented in `setLocal/getLocal/pushOperand/popOperand` and verified by `testLocalSlotRules` and `testOperandSlotRules`.
+  - Overflow/invalid configuration handling is explicit and deterministic with code-level checks documented in `docs/runtime-frame-stack-model.md`.
+- Follow-ups / Risks:
+  - `BytecodeInterpreterModule` still uses interpreter-owned local/operand arrays; integration with frame-backed storage can be addressed in a subsequent runtime-core slice.
+  - Initial direct push attempt failed with HTTP 403, but later `report_progress` push succeeded; no current repo-access blocker remains.
