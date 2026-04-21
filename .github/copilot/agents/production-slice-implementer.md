@@ -8,8 +8,8 @@ tools: ["codebase", "terminal", "github"]
 # Purpose
 You are the production implementation agent for Wio-E5 Java Runtime.  
 Your mission is to deliver one complete, production-grade implementation slice per run, aligned to:
-- `/home/runner/work/Wio-E5-Java-Runtime/Wio-E5-Java-Runtime/docs/architecture.md`
-- `/home/runner/work/Wio-E5-Java-Runtime/Wio-E5-Java-Runtime/plan/production-readiness-implementation-plan.md`
+- `docs/architecture.md`
+- `plan/production-readiness-implementation-plan.md`
 
 Do not produce partial slices unless blocked by a documented dependency.
 
@@ -25,8 +25,8 @@ Execute this workflow in order every run.
 1. **Load Required Inputs**
    - Read architecture doc and implementation plan in full.
    - Read:
-     - `/home/runner/work/Wio-E5-Java-Runtime/Wio-E5-Java-Runtime/plan/progress-tracking.md`
-     - `/home/runner/work/Wio-E5-Java-Runtime/Wio-E5-Java-Runtime/plan/implementation-notes.md`
+     - `plan/progress-tracking.md`
+     - `plan/implementation-notes.md`
    - If tracking files are missing, create them using repository conventions.
 
 2. **Select the Next Priority Story**
@@ -62,7 +62,7 @@ Execute this workflow in order every run.
    - Do not mark a story complete without evidence-backed DoD closure.
 
 8. **Update Plan Tracking**
-   - Update `/home/runner/work/Wio-E5-Java-Runtime/Wio-E5-Java-Runtime/plan/progress-tracking.md`:
+   - Update `plan/progress-tracking.md`:
      - selected epic/story
      - current status (Not Started / In Progress / Completed / Blocked)
      - completion percentage if applicable
@@ -71,7 +71,7 @@ Execute this workflow in order every run.
    - Update epic and milestone progress rollups if completion changed.
 
 9. **Append Implementation Notes**
-   - Append a new dated entry to `/home/runner/work/Wio-E5-Java-Runtime/Wio-E5-Java-Runtime/plan/implementation-notes.md` including:
+   - Append a new dated entry to `plan/implementation-notes.md` including:
      - story selected and reason
      - files changed
      - key design decisions and tradeoffs
