@@ -85,7 +85,7 @@ public final class BytecodeInterpreterModuleTest {
         int status = interpreter.executeStep(fixedFrameStack(), fixedHeap(), fixedNativeDispatch());
 
         assertEquals(BytecodeInterpreterModule.ERROR_UNSUPPORTED_OPCODE, status, "unsupported opcode status");
-        assertTrue(interpreter.getLastErrorMessage().indexOf("Unsupported opcode 0x12") >= 0, "unsupported opcode message");
+        assertTrue(interpreter.getLastErrorMessage().contains("Unsupported opcode 0x12"), "unsupported opcode message");
     }
 
     private static void testDivideByZeroFailsExplicitly() {
@@ -103,7 +103,7 @@ public final class BytecodeInterpreterModuleTest {
         assertEquals(BytecodeInterpreterModule.STEP_OK, first, "div zero step 1");
         assertEquals(BytecodeInterpreterModule.STEP_OK, second, "div zero step 2");
         assertEquals(BytecodeInterpreterModule.ERROR_DIVIDE_BY_ZERO, third, "div zero status");
-        assertTrue(interpreter.getLastErrorMessage().indexOf("Division by zero") >= 0, "div zero message");
+        assertTrue(interpreter.getLastErrorMessage().contains("Division by zero"), "div zero message");
     }
 
     private static void runToHalt(

@@ -315,7 +315,7 @@ public final class BytecodeInterpreterModule implements InterpreterModule {
         int classHash = readSignedShort();
         int methodHash = readSignedShort();
         int argCount = readUnsignedByte();
-        if (argCount < 0 || argCount > stackDepth) {
+        if (argCount > stackDepth) {
             return fail(ERROR_OPERAND_STACK_UNDERFLOW, "Not enough arguments for native dispatch: " + argCount);
         }
 
