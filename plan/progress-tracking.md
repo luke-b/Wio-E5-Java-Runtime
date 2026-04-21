@@ -11,7 +11,7 @@
 | 2026-04-21 | N/A | N/A | Tracking initialized | In Progress | N/A | N/A | None | Baseline tracking file created. |
 | 2026-04-21 | Epic 1 — Runtime Core | E1-S1 | Define runtime module boundaries and interfaces | Completed | Pass | `javac` compile of main+test sources and `RuntimeModuleRegistryTest` passed | None | Added runtime core module interfaces, immutable registry, and module-boundary documentation. |
 | 2026-04-21 | Epic 1 — Runtime Core | E1-S2 | Implement bytecode interpreter subset | Completed | Pass | `javac` compile of main+test sources and `RuntimeModuleRegistryTest` + `BytecodeInterpreterModuleTest` passed | None | Added deterministic interpreter subset with explicit unsupported-opcode/runtime error model and deterministic sample-program tests. |
-| 2026-04-21 | Epic 1 — Runtime Core | E1-S3 | Implement frame/stack model | Completed | Pass | `javac` compile of main+test sources and `RuntimeModuleRegistryTest` + `BytecodeInterpreterModuleTest` + `DeterministicFrameStackModuleTest` passed | External: push permission denied (HTTP 403) | Added fixed-capacity frame stack implementation with enforced frame depth/local/operand slot limits and deterministic overflow/underflow behavior tests. |
+| 2026-04-21 | Epic 1 — Runtime Core | E1-S3 | Implement frame/stack model | Completed | Pass | `javac` compile of main+test sources and `RuntimeModuleRegistryTest` + `BytecodeInterpreterModuleTest` + `DeterministicFrameStackModuleTest` passed | None | Added fixed-capacity frame stack implementation with enforced frame depth/local/operand slot limits and deterministic overflow/underflow behavior tests. |
 
 ## Epic Progress Snapshot
 | Epic | Status | Completion | Last Updated |

@@ -118,4 +118,4 @@
   - Overflow/invalid configuration handling is explicit and deterministic with code-level checks documented in `docs/runtime-frame-stack-model.md`.
 - Follow-ups / Risks:
   - `BytecodeInterpreterModule` still uses interpreter-owned local/operand arrays; integration with frame-backed storage can be addressed in a subsequent runtime-core slice.
-  - Push of progress commits succeeded locally, but remote push failed with repository permission error (HTTP 403), requiring credentials/permission unblock for remote progress reporting.
+  - Initial direct push attempt failed with HTTP 403, but later `report_progress` push succeeded; no current repo-access blocker remains.
