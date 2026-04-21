@@ -119,3 +119,47 @@
 - Follow-ups / Risks:
   - `BytecodeInterpreterModule` still uses interpreter-owned local/operand arrays; integration with frame-backed storage can be addressed in a subsequent runtime-core slice.
   - Initial direct push attempt failed with HTTP 403, but later `report_progress` push succeeded; no current repo-access blocker remains.
+
+## 2026-04-21 — E1-S4 Mark-Sweep GC with Bounded Pauses
+- Story Selected: **E1-S4 — Implement mark-sweep GC with bounded pauses**.
+- Selection Rationale:
+  - Selected by strict epic/story ordering as the first incomplete story after E1-S3.
+  - No dependency blocker existed because frame-stack boundaries from E1-S3 already provided a deterministic root-visibility seam.
+- Acceptance Checkpoints:
+  - Deterministic heap allocation is fixed-capacity with explicit out-of-memory behavior.
+  - GC marks from frame-root references and sweeps unreachable objects safely.
+  - Collection reports bounded deterministic pause metrics suitable for constrained runtime gating.
+- Files Changed:
+  - `src/main/java/wioe5/runtime/FrameStackModule.java`
+  - `src/main/java/wioe5/runtime/DeterministicFrameStackModule.java`
+  - `src/main/java/wioe5/runtime/DeterministicHeapManagerModule.java`
+  - `src/test/java/wioe5/runtime/DeterministicFrameStackModuleTest.java`
+  - `src/test/java/wioe5/runtime/DeterministicHeapManagerModuleTest.java`
+  - `docs/runtime-module-boundaries.md`
+  - `docs/runtime-heap-gc-model.md`
+  - `plan/progress-tracking.md`
+  - `plan/implementation-notes.md`
+- Key Decisions and Tradeoffs:
+  - Implemented a pre-allocated metadata heap (`maxObjects`, fixed reference slots) instead of dynamic containers to preserve deterministic memory usage and cooperative runtime behavior.
+  - Extended `FrameStackModule` with default GC-root methods to keep compatibility for non-root-aware implementations while enabling deterministic root traversal in `DeterministicFrameStackModule`.
+  - Used deterministic operation-count pause metrics (`pauseTicks = markedCount + sweepCount`) rather than wall-clock timing to avoid host jitter and provide reproducible acceptance evidence.
+- Tests Added/Updated:
+  - Added `DeterministicHeapManagerModuleTest` with deterministic reference workloads:
+    - allocation boundary and heap-full behavior
+    - mark/sweep correctness from frame locals/operands
+    - bounded pause metric assertions
+    - invalid-handle/reference-slot negative-path checks
+  - Updated `DeterministicFrameStackModuleTest` with `testGcRootVisibility` to verify root enumeration excludes scalar slots.
+- Validation Results:
+  - `javac -d build/test-classes $(find src/main/java src/test/java -name '*.java')` ✅
+  - `java -cp build/test-classes wioe5.runtime.RuntimeModuleRegistryTest` ✅
+  - `java -cp build/test-classes wioe5.runtime.BytecodeInterpreterModuleTest` ✅
+  - `java -cp build/test-classes wioe5.runtime.DeterministicFrameStackModuleTest` ✅
+  - `java -cp build/test-classes wioe5.runtime.DeterministicHeapManagerModuleTest` ✅
+- DoD Evidence:
+  - Heap allocation and mark-sweep entry point are implemented in `DeterministicHeapManagerModule` with explicit error codes and deterministic fixed-capacity metadata.
+  - Root marking from frame locals/operands is implemented through `FrameStackModule.gcRootCount/gcRootAt` and `DeterministicFrameStackModule` reference-slot tracking.
+  - Bounded pause metrics are exposed and validated in tests via deterministic pause-tick assertions and fixed sweep-width checks.
+- Follow-ups / Risks:
+  - Interpreter still allocates via `HeapManagerModule` but does not yet write object graph references; richer object layouts will likely arrive with ROMized runtime integration.
+  - Soak behavior target in E1-S5 remains open and is the immediate next runtime-core risk-reduction slice.

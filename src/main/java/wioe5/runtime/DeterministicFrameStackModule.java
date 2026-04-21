@@ -20,7 +20,9 @@ public final class DeterministicFrameStackModule implements FrameStackModule {
     private final int[] operandSlotLimits;
     private final int[] operandDepthByFrame;
     private final int[][] localsByFrame;
+    private final boolean[][] localReferenceByFrame;
     private final int[][] operandByFrame;
+    private final boolean[][] operandReferenceByFrame;
 
     private int depth;
 
@@ -42,7 +44,9 @@ public final class DeterministicFrameStackModule implements FrameStackModule {
         this.operandSlotLimits = new int[maxFrames];
         this.operandDepthByFrame = new int[maxFrames];
         this.localsByFrame = new int[maxFrames][maxLocalSlotsPerFrame];
+        this.localReferenceByFrame = new boolean[maxFrames][maxLocalSlotsPerFrame];
         this.operandByFrame = new int[maxFrames][maxOperandSlotsPerFrame];
+        this.operandReferenceByFrame = new boolean[maxFrames][maxOperandSlotsPerFrame];
     }
 
     @Override
@@ -108,6 +112,20 @@ public final class DeterministicFrameStackModule implements FrameStackModule {
             return ERROR_LOCAL_SLOT_OUT_OF_RANGE;
         }
         localsByFrame[frameIndex][index] = value;
+        localReferenceByFrame[frameIndex][index] = false;
+        return OK;
+    }
+
+    public int setLocalReference(int index, int referenceHandle) {
+        if (depth <= 0) {
+            return ERROR_NO_ACTIVE_FRAME;
+        }
+        int frameIndex = depth - 1;
+        if (index < 0 || index >= localSlotLimits[frameIndex]) {
+            return ERROR_LOCAL_SLOT_OUT_OF_RANGE;
+        }
+        localsByFrame[frameIndex][index] = referenceHandle;
+        localReferenceByFrame[frameIndex][index] = true;
         return OK;
     }
 
@@ -132,6 +150,22 @@ public final class DeterministicFrameStackModule implements FrameStackModule {
             return ERROR_OPERAND_STACK_OVERFLOW;
         }
         operandByFrame[frameIndex][operandDepth] = value;
+        operandReferenceByFrame[frameIndex][operandDepth] = false;
+        operandDepthByFrame[frameIndex] = operandDepth + 1;
+        return OK;
+    }
+
+    public int pushOperandReference(int referenceHandle) {
+        if (depth <= 0) {
+            return ERROR_NO_ACTIVE_FRAME;
+        }
+        int frameIndex = depth - 1;
+        int operandDepth = operandDepthByFrame[frameIndex];
+        if (operandDepth >= operandSlotLimits[frameIndex]) {
+            return ERROR_OPERAND_STACK_OVERFLOW;
+        }
+        operandByFrame[frameIndex][operandDepth] = referenceHandle;
+        operandReferenceByFrame[frameIndex][operandDepth] = true;
         operandDepthByFrame[frameIndex] = operandDepth + 1;
         return OK;
     }
@@ -148,6 +182,7 @@ public final class DeterministicFrameStackModule implements FrameStackModule {
         int newDepth = operandDepth - 1;
         int value = operandByFrame[frameIndex][newDepth];
         operandByFrame[frameIndex][newDepth] = 0;
+        operandReferenceByFrame[frameIndex][newDepth] = false;
         operandDepthByFrame[frameIndex] = newDepth;
         return value;
     }
@@ -173,12 +208,62 @@ public final class DeterministicFrameStackModule implements FrameStackModule {
         return operandSlotLimits[depth - 1];
     }
 
+    @Override
+    public int gcRootCount() {
+        int count = 0;
+        for (int frameIndex = 0; frameIndex < depth; frameIndex++) {
+            for (int localIndex = 0; localIndex < localSlotLimits[frameIndex]; localIndex++) {
+                if (localReferenceByFrame[frameIndex][localIndex]) {
+                    count++;
+                }
+            }
+            int operandDepth = operandDepthByFrame[frameIndex];
+            for (int operandIndex = 0; operandIndex < operandDepth; operandIndex++) {
+                if (operandReferenceByFrame[frameIndex][operandIndex]) {
+                    count++;
+                }
+            }
+        }
+        return count;
+    }
+
+    @Override
+    public int gcRootAt(int index) {
+        if (index < 0) {
+            return 0;
+        }
+
+        int cursor = 0;
+        for (int frameIndex = 0; frameIndex < depth; frameIndex++) {
+            for (int localIndex = 0; localIndex < localSlotLimits[frameIndex]; localIndex++) {
+                if (localReferenceByFrame[frameIndex][localIndex]) {
+                    if (cursor == index) {
+                        return localsByFrame[frameIndex][localIndex];
+                    }
+                    cursor++;
+                }
+            }
+            int operandDepth = operandDepthByFrame[frameIndex];
+            for (int operandIndex = 0; operandIndex < operandDepth; operandIndex++) {
+                if (operandReferenceByFrame[frameIndex][operandIndex]) {
+                    if (cursor == index) {
+                        return operandByFrame[frameIndex][operandIndex];
+                    }
+                    cursor++;
+                }
+            }
+        }
+        return 0;
+    }
+
     private void clearFrameMemory(int frameIndex) {
         for (int i = 0; i < maxLocalSlotsPerFrame; i++) {
             localsByFrame[frameIndex][i] = 0;
+            localReferenceByFrame[frameIndex][i] = false;
         }
         for (int i = 0; i < maxOperandSlotsPerFrame; i++) {
             operandByFrame[frameIndex][i] = 0;
+            operandReferenceByFrame[frameIndex][i] = false;
         }
     }
 }
