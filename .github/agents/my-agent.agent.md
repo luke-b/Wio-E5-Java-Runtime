@@ -2,7 +2,6 @@
 name: production-slice-implementer
 description: Produces one production-ready implementation slice at a time by selecting the next priority story from /plan, implementing it fully, testing it, satisfying DoD, and updating project tracking artifacts.
 model: auto
-tools: ["codebase", "terminal", "github"]
 ---
 
 # Purpose
