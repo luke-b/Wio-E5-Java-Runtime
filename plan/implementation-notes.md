@@ -47,3 +47,38 @@
 - Follow-ups / Risks:
   - Next story E1-S2 must define exact opcode coverage and runtime error model using these boundaries.
   - Module contracts may need extension once interpreter execution state schema is finalized.
+
+## 2026-04-21 — E1-S2 Bytecode Interpreter Subset
+- Story Selected: **E1-S2 — Implement bytecode interpreter subset**.
+- Selection Rationale:
+  - Selected by strict epic/story priority order as the next not-started story after completed E1-S1.
+  - E1-S1 module-boundary work provided the required integration surface (`InterpreterModule`, `HeapManagerModule`, `FrameStackModule`, `NativeDispatchModule`) so no dependency blocker existed.
+- Acceptance Checkpoints:
+  - Deterministic interpreter subset executes sample programs using supported opcodes.
+  - Unsupported opcodes fail explicitly with runtime error code and diagnostic text.
+  - Runtime constraints are preserved: bounded arrays for locals/operand stack, single-step cooperative execution, fail-fast error behavior.
+- Files Changed:
+  - `.gitignore`
+  - `src/main/java/wioe5/runtime/BytecodeInterpreterModule.java`
+  - `src/test/java/wioe5/runtime/BytecodeInterpreterModuleTest.java`
+  - `docs/runtime-bytecode-subset.md`
+  - `plan/progress-tracking.md`
+  - `plan/implementation-notes.md`
+- Key Decisions and Tradeoffs:
+  - Implemented a host-side deterministic interpreter module as a bounded, fixed-array execution core to align with architecture memory constraints and cooperative scheduling.
+  - Added explicit negative status-code runtime error model plus diagnostic messages to make unsupported bytecodes and failure paths observable without dynamic allocation-heavy exception control flow.
+  - Kept invocation/object behavior intentionally minimal (`invokestatic`/`invokespecial` delegated to native dispatch and `new` delegated to heap allocator) to satisfy story DoD while preserving clean seams for later frame/heap stories.
+- Tests Added/Updated:
+  - Added `BytecodeInterpreterModuleTest` (main-based deterministic harness).
+  - Coverage includes deterministic arithmetic flow, deterministic branching flow, native-dispatch + allocation path, unsupported-opcode negative path, and divide-by-zero negative path.
+- Validation Results:
+  - `javac -d build/test-classes $(find src/main/java src/test/java -name '*.java')` ✅
+  - `java -cp build/test-classes wioe5.runtime.RuntimeModuleRegistryTest` ✅
+  - `java -cp build/test-classes wioe5.runtime.BytecodeInterpreterModuleTest` ✅
+- DoD Evidence:
+  - Supported opcode subset is implemented and documented in `docs/runtime-bytecode-subset.md`.
+  - Deterministic sample programs are executed and asserted in `BytecodeInterpreterModuleTest`.
+  - Unsupported opcode behavior is explicit and validated via status code + message assertion.
+- Follow-ups / Risks:
+  - Next story E1-S3 should formalize runtime frame model and enforce frame/operand/local slot constraints through concrete frame-stack state integration.
+  - Current interpreter encodes immediate operands directly in bytecode test programs; ROMized metadata binding is deferred to Epic 3 (ROMizer).
