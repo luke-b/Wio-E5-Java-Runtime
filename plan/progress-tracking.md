@@ -2,8 +2,8 @@
 
 ## Current Sprint / Iteration
 - Date: 2026-04-21
-- Current Story: E2-S1 — Implement native dispatch table and symbol mapping
-- Status: Completed
+- Current Story: E2-S2 — Implement `wioe5.system.Power` natives
+- Status: Blocked (awaiting target-board hardware validation)
 
 ## Story Execution Log
 | Date | Epic | Story ID | Story Title | Status | DoD State | Validation Summary | Blockers | Notes |
@@ -15,6 +15,7 @@
 | 2026-04-21 | Epic 1 — Runtime Core | E1-S4 | Implement mark-sweep GC with bounded pauses | Completed | Pass | `javac` compile of main+test sources and `RuntimeModuleRegistryTest` + `BytecodeInterpreterModuleTest` + `DeterministicFrameStackModuleTest` + `DeterministicHeapManagerModuleTest` passed | None | Added deterministic bump-allocator + mark-sweep GC with frame-root traversal, explicit failure codes, and bounded pause-tick metrics on reference workloads. |
 | 2026-04-21 | Epic 1 — Runtime Core | E1-S5 | Runtime stability testing on long-running loops | Completed | Pass | `javac` compile of main+test sources passed.<br>`RuntimeModuleRegistryTest` passed.<br>`BytecodeInterpreterModuleTest` passed.<br>`DeterministicFrameStackModuleTest` passed.<br>`DeterministicHeapManagerModuleTest` passed.<br>`RuntimeStabilitySoakTest` passed. | None | Added deterministic 24-hour-equivalent soak loop test validating repeated frame/heap/GC cycles with bounded pause metrics and no corruption signals. |
 | 2026-04-21 | Epic 2 — Native Binding/HAL | E2-S1 | Implement native dispatch table and symbol mapping | Completed | Pass | `javac` compile of main+test sources passed.<br>`RuntimeModuleRegistryTest` passed.<br>`BytecodeInterpreterModuleTest` passed.<br>`DeterministicFrameStackModuleTest` passed.<br>`DeterministicHeapManagerModuleTest` passed.<br>`VersionedNativeDispatchTableTest` passed.<br>`RuntimeStabilitySoakTest` passed.<br>`parallel_validation` (Code Review + CodeQL) passed. | None | Added `VersionedNativeDispatchTable` with stable symbol-to-index mapping for all native stubs and explicit ROMized/native table compatibility checks. |
+| 2026-04-21 | Epic 2 — Native Binding/HAL | E2-S2 | Implement `wioe5.system.Power` natives | Blocked | Partial (host-side pass; hardware pending) | `javac` compile of main+test sources passed.<br>`RuntimeModuleRegistryTest` passed.<br>`BytecodeInterpreterModuleTest` passed.<br>`DeterministicFrameStackModuleTest` passed.<br>`DeterministicHeapManagerModuleTest` passed.<br>`DeterministicPowerNativeModuleTest` passed.<br>`VersionedNativeDispatchTableTest` passed.<br>`RuntimeStabilitySoakTest` passed. | Requires Wio-E5 hardware-in-loop access to validate deep-sleep wake restore, watchdog behavior, and battery ADC readings on target board. | Added deterministic `Power` native module model with dispatch integration and explicit error behavior; target-board DoD verification remains open. |
 
 ## Epic Progress Snapshot
 | Epic | Status | Completion | Last Updated |
@@ -30,7 +31,7 @@
 ## Milestone Progress Snapshot
 | Milestone | Progress | Last Updated | Notes |
 |---|---|---|---|
-| M1: Runtime foundation complete | 60% | 2026-04-21 | Epic 1 is complete and Epic 2 started with E2-S1 completed; hardware-native stories remain for milestone exit |
+| M1: Runtime foundation complete | 60% | 2026-04-21 | Epic 1 is complete, E2-S1 is complete, and E2-S2 host-side implementation is done but blocked on hardware validation |
 | M2: Build + native integration complete | 0% | 2026-04-21 | No stories complete yet |
 | M3: OTA + security baseline complete | 0% | 2026-04-21 | No stories complete yet |
 | M4: Quality gates and operations complete | 0% | 2026-04-21 | No stories complete yet |

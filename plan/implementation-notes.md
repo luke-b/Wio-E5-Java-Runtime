@@ -244,3 +244,46 @@
   - Hash constants are currently repository-defined and must remain synchronized with future ROMizer emission logic in Epic 3.
   - O(n²) duplicate-symbol validation at init time is acceptable for the current fixed table size but can be optimized later if symbol count grows significantly.
   - Next candidate story: **E2-S2 — Implement `wioe5.system.Power` natives**.
+
+## 2026-04-21 — E2-S2 `wioe5.system.Power` Natives
+- Story Selected: **E2-S2 — Implement `wioe5.system.Power` natives**.
+- Selection Rationale:
+  - Selected by strict epic/story ordering as the first incomplete story after E2-S1 completion.
+  - No software dependency blocker existed because E2-S1 already established stable native symbol mappings and dispatch version gating.
+- Acceptance Checkpoints:
+  - Deterministic implementations exist for `deepSleep`, `readBatteryMV`, `getResetReason`, `kickWatchdog`, `millis`, and `delayMicros`.
+  - `Power` handlers are integrated into the existing versioned native dispatch table without changing symbol index stability.
+  - Negative-path behavior is explicit for invalid arguments and out-of-range values.
+  - Validation evidence exists for compile + deterministic runtime tests; hardware-specific checks are tracked as a blocker.
+- Files Changed:
+  - `src/main/java/wioe5/runtime/DeterministicPowerNativeModule.java`
+  - `src/test/java/wioe5/runtime/DeterministicPowerNativeModuleTest.java`
+  - `docs/runtime-power-native-module.md`
+  - `docs/runtime-module-boundaries.md`
+  - `README.md`
+  - `plan/progress-tracking.md`
+  - `plan/implementation-notes.md`
+- Key Decisions and Tradeoffs:
+  - Implemented a fixed-state host-side `DeterministicPowerNativeModule` with bounded ranges and explicit return codes to preserve deterministic behavior under constrained-runtime assumptions.
+  - Modeled deep-sleep wake behavior with an explicit wake-clock-restore counter and monotonic runtime time base (`millis` + `delayMicros` carry) to capture critical STOP2 resume semantics in deterministic tests.
+  - Integrated handlers by binding only the existing `Power` native indices (`0..5`) via `installInto(...)`, preserving E2-S1 dispatch mapping compatibility and avoiding unrelated changes to other native surfaces.
+- Tests Added/Updated:
+  - Added `DeterministicPowerNativeModuleTest` (main-based deterministic harness).
+  - Coverage includes direct behavior checks, negative-path bounds checks, and dispatch-level integration checks through `VersionedNativeDispatchTable`.
+  - Updated `README.md` validation command list to include the new test harness.
+- Validation Results:
+  - `rm -rf build/test-classes && mkdir -p build/test-classes && javac -d build/test-classes $(find src/main/java -name '*.java' | sort) $(find src/test/java -name '*.java' | sort)` ✅
+  - `java -cp build/test-classes wioe5.runtime.RuntimeModuleRegistryTest` ✅
+  - `java -cp build/test-classes wioe5.runtime.BytecodeInterpreterModuleTest` ✅
+  - `java -cp build/test-classes wioe5.runtime.DeterministicFrameStackModuleTest` ✅
+  - `java -cp build/test-classes wioe5.runtime.DeterministicHeapManagerModuleTest` ✅
+  - `java -cp build/test-classes wioe5.runtime.DeterministicPowerNativeModuleTest` ✅
+  - `java -cp build/test-classes wioe5.runtime.VersionedNativeDispatchTableTest` ✅
+  - `java -cp build/test-classes wioe5.runtime.RuntimeStabilitySoakTest` ✅
+- DoD Evidence:
+  - `Power` method behavior and failure handling are implemented in `DeterministicPowerNativeModule` and verified by deterministic host-side tests.
+  - Dispatch integration is validated through hash-based dispatch calls in `DeterministicPowerNativeModuleTest`.
+  - **Open DoD item:** target-board validation (deep sleep/wake restore, watchdog, battery ADC) cannot be executed in this environment and is tracked as a blocking dependency.
+- Follow-ups / Risks:
+  - Hardware-in-loop validation on Wio-E5 is required to close E2-S2 DoD and move story status from Blocked to Completed.
+  - Next executable unblocked story candidate is **E2-S3 — Implement `wioe5.io.GPIO`, `wioe5.bus.I2C`, `wioe5.bus.UART` natives** using the same deterministic-model + dispatch-integration pattern.
