@@ -14,8 +14,9 @@ This document defines the runtime-core module boundaries required by the archite
    - `DeterministicFrameStackModule` provides fixed-capacity frame/local/operand enforcement for constrained targets.
 
 3. **HeapManagerModule**
-   - Owns allocation and garbage-collection entry point.
-   - Receives `FrameStackModule` to enforce root traversal boundary at the module interface.
+    - Owns allocation and garbage-collection entry point.
+    - Receives `FrameStackModule` to enforce root traversal boundary at the module interface.
+   - `DeterministicHeapManagerModule` provides fixed-capacity bump allocation and mark-sweep collection with deterministic pause metrics.
 
 4. **NativeDispatchModule**
    - Owns `(classHash, methodHash)` dispatch contract to native bindings.

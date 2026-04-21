@@ -1,6 +1,8 @@
 package wioe5.runtime;
 
 public final class DeterministicFrameStackModuleTest {
+    private static final int TEST_METHOD_ID = 1;
+
     private DeterministicFrameStackModuleTest() {
     }
 
@@ -11,6 +13,7 @@ public final class DeterministicFrameStackModuleTest {
         testOperandSlotRules();
         testFrameIsolationAfterPop();
         testInvalidFrameSlotConfiguration();
+        testGcRootVisibility();
     }
 
     private static void testFrameDepthBoundaries() {
@@ -72,6 +75,20 @@ public final class DeterministicFrameStackModuleTest {
         assertEquals(DeterministicFrameStackModule.ERROR_INVALID_SLOT_CONFIGURATION, stack.pushFrame(1, 1, 0), "invalid operand slots");
         assertEquals(DeterministicFrameStackModule.ERROR_INVALID_SLOT_CONFIGURATION, stack.pushFrame(1, 5, 1), "local slots exceed capacity");
         assertEquals(DeterministicFrameStackModule.ERROR_INVALID_SLOT_CONFIGURATION, stack.pushFrame(1, 1, 5), "operand slots exceed capacity");
+    }
+
+    private static void testGcRootVisibility() {
+        DeterministicFrameStackModule stack = new DeterministicFrameStackModule(2, 4, 4);
+        assertEquals(DeterministicFrameStackModule.OK, stack.pushFrame(TEST_METHOD_ID, 3, 3), "push frame for roots");
+        assertEquals(DeterministicFrameStackModule.OK, stack.setLocal(0, 123), "set scalar local");
+        assertEquals(DeterministicFrameStackModule.OK, stack.setLocalReference(1, 10), "set local reference");
+        assertEquals(DeterministicFrameStackModule.OK, stack.pushOperand(22), "push scalar operand");
+        assertEquals(DeterministicFrameStackModule.OK, stack.pushOperandReference(20), "push operand reference");
+
+        assertEquals(2, stack.gcRootCount(), "gc root count");
+        assertEquals(10, stack.gcRootAt(0), "first root");
+        assertEquals(20, stack.gcRootAt(1), "second root");
+        assertEquals(0, stack.gcRootAt(2), "out-of-range root");
     }
 
     private static void assertEquals(int expected, int actual, String label) {

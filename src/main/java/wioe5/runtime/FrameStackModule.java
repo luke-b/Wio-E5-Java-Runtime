@@ -30,4 +30,22 @@ public interface FrameStackModule {
      * @return configured maximum frame depth.
      */
     int maxDepth();
+
+    /**
+     * Returns the total number of reference-bearing local/operand slots visible to
+     * the GC across all active frames.
+     * Default is zero for frame-stack implementations that do not expose roots.
+     */
+    default int gcRootCount() {
+        return 0;
+    }
+
+    /**
+     * Returns a root reference handle by index. Implementations that do not expose
+     * roots return 0 (null) for all indexes. Implementations should also return 0
+     * when index is negative or {@code index >= gcRootCount()}.
+     */
+    default int gcRootAt(int index) {
+        return 0;
+    }
 }
