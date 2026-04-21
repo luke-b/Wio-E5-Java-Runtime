@@ -19,8 +19,10 @@ This document defines the runtime-core module boundaries required by the archite
    - `DeterministicHeapManagerModule` provides fixed-capacity bump allocation and mark-sweep collection with deterministic pause metrics.
 
 4. **NativeDispatchModule**
-   - Owns `(classHash, methodHash)` dispatch contract to native bindings.
-   - Provides deterministic return-code contract for runtime callers.
+    - Owns `(classHash, methodHash)` dispatch contract to native bindings.
+    - Provides deterministic return-code contract for runtime callers.
+   - `VersionedNativeDispatchTable` provides a stable symbol mapping plus
+     ROMized/native table-version compatibility gate.
 
 5. **RuntimeModuleRegistry**
    - Owns immutable runtime wiring and integration-point validation.
