@@ -41,6 +41,7 @@ docs/
   runtime-frame-stack-model.md
   runtime-heap-gc-model.md
   runtime-native-dispatch-table.md
+  runtime-power-native-module.md
   runtime-stability-soak.md
 src/main/java/wioe5/
   bus/      io/      lora/      runtime/      storage/      system/
@@ -48,6 +49,7 @@ src/test/java/wioe5/runtime/
   RuntimeModuleRegistryTest.java
   BytecodeInterpreterModuleTest.java
   DeterministicFrameStackModuleTest.java
+  DeterministicPowerNativeModuleTest.java
   VersionedNativeDispatchTableTest.java
 plan/
   production-readiness-implementation-plan.md
@@ -67,6 +69,7 @@ java -cp build/test-classes wioe5.runtime.RuntimeModuleRegistryTest
 java -cp build/test-classes wioe5.runtime.BytecodeInterpreterModuleTest
 java -cp build/test-classes wioe5.runtime.DeterministicFrameStackModuleTest
 java -cp build/test-classes wioe5.runtime.DeterministicHeapManagerModuleTest
+java -cp build/test-classes wioe5.runtime.DeterministicPowerNativeModuleTest
 java -cp build/test-classes wioe5.runtime.VersionedNativeDispatchTableTest
 java -cp build/test-classes wioe5.runtime.RuntimeStabilitySoakTest
 ```
@@ -79,6 +82,7 @@ java -cp build/test-classes wioe5.runtime.RuntimeStabilitySoakTest
 - Frame/stack deterministic model: `docs/runtime-frame-stack-model.md`
 - Heap and GC deterministic model: `docs/runtime-heap-gc-model.md`
 - Native binding dispatch table and compatibility contract: `docs/runtime-native-dispatch-table.md`
+- Deterministic `Power` native behavior and dispatch handlers: `docs/runtime-power-native-module.md`
 - Runtime long-loop soak profile: `docs/runtime-stability-soak.md`
 - Delivery roadmap and status tracking: `plan/production-readiness-implementation-plan.md`, `plan/progress-tracking.md`
 

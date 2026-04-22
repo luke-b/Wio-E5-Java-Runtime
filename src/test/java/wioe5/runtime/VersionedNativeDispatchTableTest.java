@@ -12,10 +12,10 @@ public final class VersionedNativeDispatchTableTest {
     }
 
     private static void testDefaultBindingCoverageAndStableMapping() {
-        VersionedNativeDispatchTable.NativeHandler[] handlers = fixedHandlers(34);
+        VersionedNativeDispatchTable.NativeHandler[] handlers = fixedHandlers(VersionedNativeDispatchTable.defaultBindingCount());
         VersionedNativeDispatchTable table = VersionedNativeDispatchTable.createDefault(1, 1, 2, handlers);
 
-        assertEquals(34, table.bindingCount(), "default binding count");
+        assertEquals(VersionedNativeDispatchTable.defaultBindingCount(), table.bindingCount(), "default binding count");
         assertEquals(0, table.resolveNativeIndex(
                 VersionedNativeDispatchTable.CLASS_HASH_POWER,
                 VersionedNativeDispatchTable.METHOD_HASH_POWER_DEEP_SLEEP), "power.deepSleep native index");
@@ -28,7 +28,7 @@ public final class VersionedNativeDispatchTableTest {
     }
 
     private static void testCompatibilityGateAndDispatch() {
-        VersionedNativeDispatchTable.NativeHandler[] handlers = fixedHandlers(34);
+        VersionedNativeDispatchTable.NativeHandler[] handlers = fixedHandlers(VersionedNativeDispatchTable.defaultBindingCount());
         VersionedNativeDispatchTable table = VersionedNativeDispatchTable.createDefault(3, 2, 4, handlers);
 
         int preVerify = table.dispatch(
@@ -52,7 +52,7 @@ public final class VersionedNativeDispatchTableTest {
     }
 
     private static void testDispatchFailureModes() {
-        VersionedNativeDispatchTable.NativeHandler[] handlers = fixedHandlers(34);
+        VersionedNativeDispatchTable.NativeHandler[] handlers = fixedHandlers(VersionedNativeDispatchTable.defaultBindingCount());
         handlers[4] = args -> -7;
         VersionedNativeDispatchTable table = VersionedNativeDispatchTable.createDefault(1, 1, 1, handlers);
         assertEquals(VersionedNativeDispatchTable.STATUS_OK, table.verifyCompatibility(1), "compatibility");
