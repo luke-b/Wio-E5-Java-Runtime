@@ -387,3 +387,57 @@
   - This slice is host-side deterministic verification; true radio timing/duty-cycle enforcement and packet-loss behavior on STM32CubeWL must still be confirmed in HIL.
   - Dispatch handle marshalling is a bounded seam and remains dependent on ROMizer/native ABI alignment in Epic 3.
   - Next candidate story: **E2-S5 — Implement `wioe5.storage.NVConfig` with wear-aware writes**.
+
+## 2026-04-22 — E2-S5 `wioe5.storage.NVConfig` Wear-Aware Writes
+- Story Selected: **E2-S5 — Implement `wioe5.storage.NVConfig` with wear-aware writes**.
+- Selection Rationale:
+  - Selected by strict epic/story priority order as the first incomplete story after E2-S4 completion.
+  - No dependency blocker existed because native symbol mapping already included NVConfig indexes (`32..33`) and deterministic native-handler patterns were established in earlier Epic 2 stories.
+- Acceptance Checkpoints:
+  - Deterministic NVConfig key/value storage supports read/write semantics for architecture-defined keys with explicit bounded value length.
+  - Wear-aware write behavior distributes erase/write pressure deterministically across fixed slots per key.
+  - Persistence survives reset/power-cycle simulation and integrity checks reject corrupted records before read returns data.
+  - Native dispatch handlers are wired for NVConfig indexes (`32..33`) with explicit argument/handle validation failures.
+- Files Changed:
+  - `src/main/java/wioe5/runtime/DeterministicNvConfigNativeModule.java`
+  - `src/test/java/wioe5/runtime/DeterministicNvConfigNativeModuleTest.java`
+  - `docs/runtime-nvconfig-native-module.md`
+  - `docs/runtime-module-boundaries.md`
+  - `README.md`
+  - `plan/progress-tracking.md`
+  - `plan/implementation-notes.md`
+- Key Decisions and Tradeoffs:
+  - Implemented a fixed-capacity flash-sector model (`FlashSector`) with per-key ring slots and monotonic generations to keep behavior deterministic and memory-bounded under constrained-runtime assumptions.
+  - Added CRC16 integrity checks over key/generation/length/payload so corrupted records are ignored during read selection instead of being returned silently.
+  - Modeled wear-awareness with round-robin slot targeting per key and explicit per-slot erase counters, prioritizing deterministic verifiability over low-level silicon emulation complexity.
+- Tests Added/Updated:
+  - Added `DeterministicNvConfigNativeModuleTest` covering:
+    - read/write persistence through reset simulation using shared flash-sector state
+    - corruption rejection by checksum-integrity enforcement
+    - wear-aware slot-rotation distribution bounds across repeated writes
+    - dispatch integration for NVConfig symbol indexes (`32..33`)
+    - negative paths (missing value, invalid key/length/handles, dispatch storage full)
+  - Updated `README.md` validation command list and documentation index.
+- Validation Results:
+  - `rm -rf build/test-classes && mkdir -p build/test-classes && javac -d build/test-classes $(find src/main/java -name '*.java' | sort) $(find src/test/java -name '*.java' | sort)` ✅
+  - `java -cp build/test-classes wioe5.runtime.RuntimeModuleRegistryTest` ✅
+  - `java -cp build/test-classes wioe5.runtime.BytecodeInterpreterModuleTest` ✅
+  - `java -cp build/test-classes wioe5.runtime.DeterministicFrameStackModuleTest` ✅
+  - `java -cp build/test-classes wioe5.runtime.DeterministicHeapManagerModuleTest` ✅
+  - `java -cp build/test-classes wioe5.runtime.DeterministicPeripheralNativeModuleTest` ✅
+  - `java -cp build/test-classes wioe5.runtime.DeterministicPowerNativeModuleTest` ✅
+  - `java -cp build/test-classes wioe5.runtime.DeterministicLoRaNativeModuleTest` ✅
+  - `java -cp build/test-classes wioe5.runtime.DeterministicNvConfigNativeModuleTest` ✅
+  - `java -cp build/test-classes wioe5.runtime.VersionedNativeDispatchTableTest` ✅
+  - `java -cp build/test-classes wioe5.runtime.RuntimeStabilitySoakTest` ✅
+  - `parallel_validation` (Code Review + CodeQL) ✅
+- DoD Evidence:
+  - `DeterministicNvConfigNativeModule` implements deterministic read/write behavior with bounded key/value constraints and explicit return-code failures.
+  - Wear-aware writes are implemented via per-key round-robin slot selection and validated by write-distribution assertions in `testWearAwareSlotRotation`.
+  - Reset-survivable persistence is validated by creating a second module instance over the same `FlashSector` in `testWriteReadPersistenceAndIntegrity`.
+  - Integrity rejection is validated by corruption injection plus `ERROR_VALUE_NOT_FOUND` read assertion in `testWriteReadPersistenceAndIntegrity`.
+  - Dispatch mapping for indexes `32..33` is implemented by `createDefaultDispatchHandlers()` and verified by `testDispatchIntegration`.
+- Follow-ups / Risks:
+  - This slice provides deterministic host evidence; true flash erase/program timing/endurance on STM32 hardware remains for HIL validation under Epic 6.
+  - Integrity currently uses CRC16 (accidental corruption detection); cryptographic authenticity for configuration/update flows is addressed in Epic 5 security stories.
+  - Next candidate story: **E3-S1 — Implement ROMizer for class table/bytecode/native/static sections**.
