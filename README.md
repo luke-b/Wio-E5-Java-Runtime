@@ -44,6 +44,7 @@ docs/
    runtime-power-native-module.md
    runtime-peripheral-native-module.md
    runtime-lorawan-native-module.md
+   runtime-nvconfig-native-module.md
    runtime-stability-soak.md
 src/main/java/wioe5/
   bus/      io/      lora/      runtime/      storage/      system/
@@ -51,9 +52,11 @@ src/test/java/wioe5/runtime/
   RuntimeModuleRegistryTest.java
   BytecodeInterpreterModuleTest.java
   DeterministicFrameStackModuleTest.java
+  DeterministicHeapManagerModuleTest.java
   DeterministicPeripheralNativeModuleTest.java
   DeterministicPowerNativeModuleTest.java
   DeterministicLoRaNativeModuleTest.java
+  DeterministicNvConfigNativeModuleTest.java
   VersionedNativeDispatchTableTest.java
 plan/
   production-readiness-implementation-plan.md
@@ -76,6 +79,7 @@ java -cp build/test-classes wioe5.runtime.DeterministicHeapManagerModuleTest
 java -cp build/test-classes wioe5.runtime.DeterministicPeripheralNativeModuleTest
 java -cp build/test-classes wioe5.runtime.DeterministicPowerNativeModuleTest
 java -cp build/test-classes wioe5.runtime.DeterministicLoRaNativeModuleTest
+java -cp build/test-classes wioe5.runtime.DeterministicNvConfigNativeModuleTest
 java -cp build/test-classes wioe5.runtime.VersionedNativeDispatchTableTest
 java -cp build/test-classes wioe5.runtime.RuntimeStabilitySoakTest
 ```
@@ -91,6 +95,7 @@ java -cp build/test-classes wioe5.runtime.RuntimeStabilitySoakTest
 - Deterministic `Power` native behavior and dispatch handlers: `docs/runtime-power-native-module.md`
 - Deterministic GPIO/I2C/UART native behavior and dispatch handlers: `docs/runtime-peripheral-native-module.md`
 - Deterministic LoRaWAN native behavior and process-loop contract: `docs/runtime-lorawan-native-module.md`
+- Deterministic NVConfig native behavior and wear-tracking model: `docs/runtime-nvconfig-native-module.md`
 - Runtime long-loop soak profile: `docs/runtime-stability-soak.md`
 - Delivery roadmap and status tracking: `plan/production-readiness-implementation-plan.md`, `plan/progress-tracking.md`
 

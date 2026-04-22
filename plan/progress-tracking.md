@@ -2,7 +2,7 @@
 
 ## Current Sprint / Iteration
 - Date: 2026-04-22
-- Current Story: E2-S5 — Implement `wioe5.storage.NVConfig` with wear-aware writes
+- Current Story: E3-S1 — Implement ROMizer for class table/bytecode/native/static sections
 - Status: Not Started
 
 ## Story Execution Log
@@ -18,12 +18,13 @@
 | 2026-04-22 | Epic 2 — Native Binding/HAL | E2-S2 | Implement `wioe5.system.Power` natives | Completed | Pass | `javac` compile of main+test sources passed.<br>`RuntimeModuleRegistryTest` passed.<br>`BytecodeInterpreterModuleTest` passed.<br>`DeterministicFrameStackModuleTest` passed.<br>`DeterministicHeapManagerModuleTest` passed.<br>`DeterministicPowerNativeModuleTest` passed.<br>`VersionedNativeDispatchTableTest` passed.<br>`RuntimeStabilitySoakTest` passed. | None | Added deterministic `Power` native module covering deep sleep/wake restore, watchdog, battery read, `millis`, and `delayMicros`, plus native-dispatch integration handlers and failure-path tests. |
 | 2026-04-22 | Epic 2 — Native Binding/HAL | E2-S3 | Implement `wioe5.io.GPIO`, `wioe5.bus.I2C`, `wioe5.bus.UART` natives | Completed | Pass | `javac` compile of main+test sources passed.<br>`RuntimeModuleRegistryTest` passed.<br>`BytecodeInterpreterModuleTest` passed.<br>`DeterministicFrameStackModuleTest` passed.<br>`DeterministicHeapManagerModuleTest` passed.<br>`DeterministicPeripheralNativeModuleTest` passed.<br>`DeterministicPowerNativeModuleTest` passed.<br>`VersionedNativeDispatchTableTest` passed.<br>`RuntimeStabilitySoakTest` passed. | None | Added deterministic peripheral native module for GPIO/I2C/UART with standardized return codes, loopback-capable validation seams, and native-dispatch handlers for peripheral symbol indexes. |
 | 2026-04-22 | Epic 2 — Native Binding/HAL | E2-S4 | Implement `wioe5.lora.LoRaWAN` natives and process loop contract | Completed | Pass | `javac` compile of main+test sources passed.<br>`RuntimeModuleRegistryTest` passed.<br>`BytecodeInterpreterModuleTest` passed.<br>`DeterministicFrameStackModuleTest` passed.<br>`DeterministicHeapManagerModuleTest` passed.<br>`DeterministicPeripheralNativeModuleTest` passed.<br>`DeterministicPowerNativeModuleTest` passed.<br>`DeterministicLoRaNativeModuleTest` passed.<br>`VersionedNativeDispatchTableTest` passed.<br>`RuntimeStabilitySoakTest` passed. | None | Added deterministic LoRaWAN native module with cooperative process-loop state machine, packet-loss/duty-cycle gating, downlink/radio-metric flow, and dispatch handlers for LoRa symbol indexes 10..20. |
+| 2026-04-22 | Epic 2 — Native Binding/HAL | E2-S5 | Implement `wioe5.storage.NVConfig` with wear-aware writes | Completed | Pass | `javac` compile of main+test sources passed.<br>`RuntimeModuleRegistryTest` passed.<br>`BytecodeInterpreterModuleTest` passed.<br>`DeterministicFrameStackModuleTest` passed.<br>`DeterministicHeapManagerModuleTest` passed.<br>`DeterministicPeripheralNativeModuleTest` passed.<br>`DeterministicPowerNativeModuleTest` passed.<br>`DeterministicLoRaNativeModuleTest` passed.<br>`DeterministicNvConfigNativeModuleTest` passed.<br>`VersionedNativeDispatchTableTest` passed.<br>`RuntimeStabilitySoakTest` passed. | None | Added deterministic NVConfig native module with wear-aware write counting, erase-before-write semantics, 6-key fixed-capacity store, test-injectable write budget, and dispatch handlers for NVConfig symbol indexes 32..33. |
 
 ## Epic Progress Snapshot
 | Epic | Status | Completion | Last Updated |
 |---|---|---|---|
 | Epic 1 — Runtime Core | Completed | 100% | 2026-04-21 |
-| Epic 2 — Native Binding/HAL | In Progress | 80% | 2026-04-22 |
+| Epic 2 — Native Binding/HAL | Completed | 100% | 2026-04-22 |
 | Epic 3 — ROMizer/Build | Not Started | 0% | 2026-04-21 |
 | Epic 4 — OTA | Not Started | 0% | 2026-04-21 |
 | Epic 5 — Security | Not Started | 0% | 2026-04-21 |
@@ -33,7 +34,7 @@
 ## Milestone Progress Snapshot
 | Milestone | Progress | Last Updated | Notes |
 |---|---|---|---|
-| M1: Runtime foundation complete | 90% | 2026-04-22 | Epic 1 is complete and Epic 2 progressed through E2-S4; remaining NVConfig native story gates milestone exit |
+| M1: Runtime foundation complete | 100% | 2026-04-22 | Epic 1 complete and Epic 2 complete; all native module stories delivered |
 | M2: Build + native integration complete | 0% | 2026-04-21 | No stories complete yet |
 | M3: OTA + security baseline complete | 0% | 2026-04-21 | No stories complete yet |
 | M4: Quality gates and operations complete | 0% | 2026-04-21 | No stories complete yet |
