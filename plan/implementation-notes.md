@@ -244,3 +244,50 @@
   - Hash constants are currently repository-defined and must remain synchronized with future ROMizer emission logic in Epic 3.
   - O(n²) duplicate-symbol validation at init time is acceptable for the current fixed table size but can be optimized later if symbol count grows significantly.
   - Next candidate story: **E2-S2 — Implement `wioe5.system.Power` natives**.
+
+## 2026-04-22 — E2-S2 `wioe5.system.Power` Natives
+- Story Selected: **E2-S2 — Implement `wioe5.system.Power` natives**.
+- Selection Rationale:
+  - Selected by strict epic/story ordering as the first incomplete story in Epic 2 after E2-S1 completion.
+  - No dependency blocker existed because native symbol mapping and dispatch-version compatibility were already in place.
+- Acceptance Checkpoints:
+  - Deep sleep behavior includes deterministic wake-restore semantics and bounded argument validation.
+  - Battery/read-reset/watchdog/timing behaviors are concretely implemented with explicit return-code failures.
+  - Power natives can be exercised through native dispatch routing using the existing `(classHash, methodHash)` contract.
+- Files Changed:
+  - `src/main/java/wioe5/runtime/DeterministicPowerNativeModule.java`
+  - `src/main/java/wioe5/runtime/VersionedNativeDispatchTable.java`
+  - `src/test/java/wioe5/runtime/DeterministicPowerNativeModuleTest.java`
+  - `src/test/java/wioe5/runtime/VersionedNativeDispatchTableTest.java`
+  - `docs/runtime-module-boundaries.md`
+  - `docs/runtime-power-native-module.md`
+  - `README.md`
+  - `plan/progress-tracking.md`
+  - `plan/implementation-notes.md`
+- Key Decisions and Tradeoffs:
+  - Implemented a deterministic host-side `DeterministicPowerNativeModule` rather than dynamic/clock-dependent behavior so tests remain stable and reproducible under constrained-runtime assumptions.
+  - Added `createDefaultDispatchHandlers()` to provide a full dispatch-handler array where power-native indices are live and non-power entries explicitly fail with `ERROR_SYMBOL_NOT_FOUND` until subsequent stories are delivered.
+  - Preserved 32-bit `millis` wrap semantics and made wake-restore state observable (`lastWakeClockRestored`) to verify deep-sleep recovery behavior without introducing framework dependencies.
+- Tests Added/Updated:
+  - Added `DeterministicPowerNativeModuleTest` covering:
+    - direct power behavior (`deepSleep`, `readBatteryMV`, `getResetReason`, `kickWatchdog`, `millis`, `delayMicros`)
+    - negative/boundary behavior (invalid battery range, negative sleep/delay arguments)
+    - dispatch-path integration and `millis` overflow wrap behavior
+  - Updated `VersionedNativeDispatchTableTest` to consume `defaultBindingCount()` instead of hard-coded binding totals.
+- Validation Results:
+  - `rm -rf build/test-classes && mkdir -p build/test-classes && javac -d build/test-classes $(find src/main/java -name '*.java' | sort) $(find src/test/java -name '*.java' | sort)` ✅
+  - `java -cp build/test-classes wioe5.runtime.RuntimeModuleRegistryTest` ✅
+  - `java -cp build/test-classes wioe5.runtime.BytecodeInterpreterModuleTest` ✅
+  - `java -cp build/test-classes wioe5.runtime.DeterministicFrameStackModuleTest` ✅
+  - `java -cp build/test-classes wioe5.runtime.DeterministicHeapManagerModuleTest` ✅
+  - `java -cp build/test-classes wioe5.runtime.DeterministicPowerNativeModuleTest` ✅
+  - `java -cp build/test-classes wioe5.runtime.VersionedNativeDispatchTableTest` ✅
+  - `java -cp build/test-classes wioe5.runtime.RuntimeStabilitySoakTest` ✅
+- DoD Evidence:
+  - All six `Power` native behaviors are implemented with deterministic return-code behavior in `DeterministicPowerNativeModule`.
+  - Deep-sleep wake restore and timing semantics are validated by explicit assertions in `DeterministicPowerNativeModuleTest`.
+  - Dispatch-level execution of `Power` native symbols is verified using `VersionedNativeDispatchTable` compatibility gating plus handler dispatch assertions.
+- Follow-ups / Risks:
+  - This slice provides host-side deterministic native behavior; board-level HAL validation remains required in later hardware-in-loop work.
+  - `Power.delayMicros` currently models deterministic tick advancement without cycle-accurate calibration, which is acceptable for host verification but not final silicon timing characterization.
+  - Next candidate story: **E2-S3 — Implement `wioe5.io.GPIO`, `wioe5.bus.I2C`, `wioe5.bus.UART` natives**.

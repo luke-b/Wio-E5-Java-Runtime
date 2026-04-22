@@ -101,6 +101,7 @@ public final class VersionedNativeDispatchTable implements NativeDispatchModule 
             new NativeBinding(CLASS_HASH_NVCONFIG, METHOD_HASH_NVCONFIG_READ, 32),
             new NativeBinding(CLASS_HASH_NVCONFIG, METHOD_HASH_NVCONFIG_WRITE, 33)
     };
+    public static final int DEFAULT_BINDING_COUNT = DEFAULT_BINDINGS.length;
 
     private final int runtimeNativeTableVersion;
     private final int minSupportedRomizedNativeTableVersion;
@@ -144,6 +145,10 @@ public final class VersionedNativeDispatchTable implements NativeDispatchModule 
                 maxSupportedRomizedNativeTableVersion,
                 DEFAULT_BINDINGS,
                 nativeHandlers);
+    }
+
+    public static int defaultBindingCount() {
+        return DEFAULT_BINDING_COUNT;
     }
 
     @Override
