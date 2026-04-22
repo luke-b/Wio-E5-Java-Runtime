@@ -33,6 +33,10 @@ This document defines the runtime-core module boundaries required by the archite
       implementations for LoRaWAN join/send/process/downlink behavior with
       packet-loss and duty-cycle-safe process-loop semantics plus dispatch
       handlers for LoRa native indexes.
+    - `DeterministicNvConfigNativeModule` provides deterministic host-side
+      non-volatile key/value behavior with fixed-capacity wear-aware slot
+      rotation, integrity checks, and dispatch handlers for NVConfig native
+      indexes.
 
 5. **RuntimeModuleRegistry**
    - Owns immutable runtime wiring and integration-point validation.
