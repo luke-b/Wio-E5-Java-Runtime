@@ -388,38 +388,36 @@
   - Dispatch handle marshalling is a bounded seam and remains dependent on ROMizer/native ABI alignment in Epic 3.
   - Next candidate story: **E2-S5 — Implement `wioe5.storage.NVConfig` with wear-aware writes**.
 
-## 2026-04-22 — E2-S5 `wioe5.storage.NVConfig` with Wear-Aware Writes
+## 2026-04-22 — E2-S5 `wioe5.storage.NVConfig` Wear-Aware Writes
 - Story Selected: **E2-S5 — Implement `wioe5.storage.NVConfig` with wear-aware writes**.
 - Selection Rationale:
   - Selected by strict epic/story priority order as the first incomplete story after E2-S4 completion.
-  - No dependency blocker existed because native symbol mapping for NVConfig (indexes 32/33) and dispatch-handler pattern were already established.
+  - No dependency blocker existed because native symbol mapping already included NVConfig indexes (`32..33`) and deterministic native-handler patterns were established in earlier Epic 2 stories.
 - Acceptance Checkpoints:
-  - Fixed-capacity key store (6 keys, max 64 bytes each) enforces key-range and size boundaries with explicit return codes.
-  - Erase-before-write semantics zero out the full 64-byte slot before committing the new value.
-  - Per-key write counters are accurate and observable; a test-injectable write budget enforces deterministic `ERROR_WRITE_BUDGET_EXCEEDED` behavior.
-  - Dispatch handlers are wired for NVConfig symbol indexes 32 (read) and 33 (write) with explicit argument and handle validation.
+  - Deterministic NVConfig key/value storage supports read/write semantics for architecture-defined keys with explicit bounded value length.
+  - Wear-aware write behavior distributes erase/write pressure deterministically across fixed slots per key.
+  - Persistence survives reset/power-cycle simulation and integrity checks reject corrupted records before read returns data.
+  - Native dispatch handlers are wired for NVConfig indexes (`32..33`) with explicit argument/handle validation failures.
 - Files Changed:
   - `src/main/java/wioe5/runtime/DeterministicNvConfigNativeModule.java`
   - `src/test/java/wioe5/runtime/DeterministicNvConfigNativeModuleTest.java`
   - `docs/runtime-nvconfig-native-module.md`
+  - `docs/runtime-module-boundaries.md`
   - `README.md`
-  - `plan/production-readiness-implementation-plan.md`
   - `plan/progress-tracking.md`
   - `plan/implementation-notes.md`
 - Key Decisions and Tradeoffs:
-  - Implemented a deterministic host-side `DeterministicNvConfigNativeModule` with pre-allocated `byte[6][64]` store, `int[6]` storedLengths, and `int[6]` writeCounts to preserve fixed-capacity deterministic memory behavior matching Wio-E5 constraints.
-  - Used sentinel value `-1` (`UNWRITTEN`) for storedLengths to distinguish "never written" from "written with zero bytes", preserving the distinction between an erased Flash page and a committed empty value.
-  - Added `setWriteBudgetPerKeyForTest(int budget)` as a global budget applied per-key independently, reflecting the architecture's per-key wear concern without requiring per-key budget configuration at construction time.
-  - Erase-before-write is modeled by zeroing all 64 bytes before writing, ensuring no old content is visible beyond the new stored length.
+  - Implemented a fixed-capacity flash-sector model (`FlashSector`) with per-key ring slots and monotonic generations to keep behavior deterministic and memory-bounded under constrained-runtime assumptions.
+  - Added CRC16 integrity checks over key/generation/length/payload so corrupted records are ignored during read selection instead of being returned silently.
+  - Modeled wear-awareness with round-robin slot targeting per key and explicit per-slot erase counters, prioritizing deterministic verifiability over low-level silicon emulation complexity.
 - Tests Added/Updated:
   - Added `DeterministicNvConfigNativeModuleTest` covering:
-    - basic read/write flow for all 6 keys and unwritten-key returns-zero behavior
-    - partial-buffer read (buffer smaller than stored length)
-    - erase-before-write: overwriting with shorter value leaves no old trailing bytes
-    - wear tracking: write counts increment per write, budget enforcement, per-key independence
-    - boundary conditions: max-length write, oversized rejection, zero-length write, truncated read
-    - dispatch integration: write and read via dispatch table, unwritten key dispatch, non-NVConfig symbol not found
-    - negative paths: null buffer/data, invalid key, `len > data.length`, negative len, invalid handles, dispatch arg-count errors
+    - read/write persistence through reset simulation using shared flash-sector state
+    - corruption rejection by checksum-integrity enforcement
+    - wear-aware slot-rotation distribution bounds across repeated writes
+    - dispatch integration for NVConfig symbol indexes (`32..33`)
+    - negative paths (missing value, invalid key/length/handles, dispatch storage full)
+  - Updated `README.md` validation command list and documentation index.
 - Validation Results:
   - `rm -rf build/test-classes && mkdir -p build/test-classes && javac -d build/test-classes $(find src/main/java -name '*.java' | sort) $(find src/test/java -name '*.java' | sort)` ✅
   - `java -cp build/test-classes wioe5.runtime.RuntimeModuleRegistryTest` ✅
@@ -432,14 +430,82 @@
   - `java -cp build/test-classes wioe5.runtime.DeterministicNvConfigNativeModuleTest` ✅
   - `java -cp build/test-classes wioe5.runtime.VersionedNativeDispatchTableTest` ✅
   - `java -cp build/test-classes wioe5.runtime.RuntimeStabilitySoakTest` ✅
+  - `parallel_validation` (Code Review + CodeQL) ✅
 - DoD Evidence:
-  - Key/value persistence with bounded capacity is implemented in `DeterministicNvConfigNativeModule` with explicit boundary, null, and invalid-key failure codes.
-  - Wear-aware write tracking is implemented and verified across `testWearTracking` (count increments, budget enforcement, per-key independence) and negative-path budget tests.
-  - Erase-before-write semantics are explicitly validated in `testEraseBeforeWrite` by writing a full 64-byte value, overwriting with 3 bytes, and asserting that no old bytes appear at positions ≥ 3.
-  - Dispatch-level coverage for NVConfig symbol indexes 32 and 33 is verified by `testDispatchIntegration` with handle-based buffer marshalling matching the established pattern.
+  - `DeterministicNvConfigNativeModule` implements deterministic read/write behavior with bounded key/value constraints and explicit return-code failures.
+  - Wear-aware writes are implemented via per-key round-robin slot selection and validated by write-distribution assertions in `testWearAwareSlotRotation`.
+  - Reset-survivable persistence is validated by creating a second module instance over the same `FlashSector` in `testWriteReadPersistenceAndIntegrity`.
+  - Integrity rejection is validated by corruption injection plus `ERROR_VALUE_NOT_FOUND` read assertion in `testWriteReadPersistenceAndIntegrity`.
+  - Dispatch mapping for indexes `32..33` is implemented by `createDefaultDispatchHandlers()` and verified by `testDispatchIntegration`.
 - Follow-ups / Risks:
-  - This slice is host-side deterministic verification; actual Flash sector erase timing and write endurance on the STM32WLE5 NVM still require board-level HIL validation.
-  - Write budget per key is currently global (one budget applies to all keys equally); if per-key budgets are needed in the future this can be extended without changing the dispatch contract.
-  - **Epic 2 is now 100% complete. M1 milestone (Runtime foundation complete) is 100% complete.**
+  - This slice provides deterministic host evidence; true flash erase/program timing/endurance on STM32 hardware remains for HIL validation under Epic 6.
+  - Integrity currently uses CRC16 (accidental corruption detection); cryptographic authenticity for configuration/update flows is addressed in Epic 5 security stories.
+  - Next candidate story: **E3-S1 — Implement ROMizer for class table/bytecode/native/static sections**.
+
+## 2026-04-22 — E2-S3 (hardening pass) — Production-harden GPIO/I2C/UART Natives
+- Story Selected: **E2-S3 (hardening pass) — Production-harden `wioe5.io.GPIO`, `wioe5.bus.I2C`, `wioe5.bus.UART` natives**.
+- Selection Rationale:
+  - E2-S3 was previously marked complete with a deterministic host-side implementation; this pass
+    adds boundary and negative-path test coverage gaps and replaces the minimal doc stub with a
+    full behavioral contract document.
+  - No dependency blockers; all dispatch infrastructure and native-handler patterns were in place.
+- Acceptance Checkpoints:
+  - All GPIO mode transitions have explicit documented and tested semantics (OUTPUT read-back,
+    INPUT_PULLUP/INPUT_PULLDOWN, analogRead rejections, all 7 pin indices).
+  - I2C edge cases covered: `len=0`/`len=1` write semantics, `len=0` read, `writeRead` failure
+    propagation, and cyclic register wrap-around behavior.
+  - UART baud boundary values (1200, 921600) tested as valid; (1199, 921601) tested as invalid.
+    Non-ASCII print rejection, null string rejection, and `writeUart` `len=0` no-op covered.
+  - Dispatch hardening: `UART_PRINTLN` dispatch tested end-to-end; `writeRead` validated with
+    individually invalid tx and rx handles; wrong argument-count paths tested for GPIO/I2C/UART.
+  - Documentation fully describes pin map, mode table, lifecycle states, baud bounds, register
+    pointer semantics, error code matrix, and dispatch index table.
+- Files Changed:
+  - `src/test/java/wioe5/runtime/DeterministicPeripheralNativeModuleTest.java`
+  - `docs/runtime-peripheral-native-module.md`
+  - `plan/progress-tracking.md`
+  - `plan/implementation-notes.md`
+- Key Decisions and Tradeoffs:
+  - No changes were made to `DeterministicPeripheralNativeModule.java`; the existing implementation
+    was correct for all edge cases. The hardening value is in explicit test evidence and doc clarity.
+  - Four new deterministic test methods were added rather than folding into existing methods to keep
+    boundary/negative coverage distinct from the original positive-path coverage, improving failure
+    localisation.
+  - Byte-buffer and string dispatch handle registries are confirmed to be separate and non-colliding;
+    this is now documented explicitly in the peripheral module doc.
+- Tests Added/Updated:
+  - `testGpioHardenedBehavior`: OUTPUT read-back; INPUT_PULLUP/INPUT_PULLDOWN mode; analogRead on
+    all non-ANALOG modes; full 7-pin validity loop; pin 7 out-of-range.
+  - `testI2cBoundaryBehavior`: `write` with len=0 and len=1; `read` with len=0; `writeRead`
+    write-failure propagation; register address cyclic wrap-around.
+  - `testUartBoundaryBehavior`: baud boundaries (1200/921600 valid; 1199/921601 invalid); non-ASCII
+    print/println rejection; null string rejection; `writeUart` len=0 no-op.
+  - `testDispatchHardenedBehavior`: `UART_PRINTLN` dispatch; `I2C_WRITE_READ` with valid-tx/invalid-rx
+    and invalid-tx/valid-rx; wrong arg-count assertions for GPIO, I2C, and UART dispatch paths.
+- Validation Results:
+  - `rm -rf build/test-classes && mkdir -p build/test-classes && javac -d build/test-classes $(find src/main/java -name '*.java' | sort) $(find src/test/java -name '*.java' | sort)` ✅
+  - `java -cp build/test-classes wioe5.runtime.RuntimeModuleRegistryTest` ✅
+  - `java -cp build/test-classes wioe5.runtime.BytecodeInterpreterModuleTest` ✅
+  - `java -cp build/test-classes wioe5.runtime.DeterministicFrameStackModuleTest` ✅
+  - `java -cp build/test-classes wioe5.runtime.DeterministicHeapManagerModuleTest` ✅
+  - `java -cp build/test-classes wioe5.runtime.DeterministicPeripheralNativeModuleTest` ✅ (all 4 original + 4 new methods)
+  - `java -cp build/test-classes wioe5.runtime.DeterministicPowerNativeModuleTest` ✅
+  - `java -cp build/test-classes wioe5.runtime.DeterministicLoRaNativeModuleTest` ✅
+  - `java -cp build/test-classes wioe5.runtime.DeterministicNvConfigNativeModuleTest` ✅
+  - `java -cp build/test-classes wioe5.runtime.VersionedNativeDispatchTableTest` ✅
+  - `java -cp build/test-classes wioe5.runtime.RuntimeStabilitySoakTest` ✅
+- DoD Evidence:
+  - GPIO/I2C/UART behavior is deterministic, bounded, and failure-safe; all mode/init/baud/address/
+    length and overflow constraints are validated by explicit assertions.
+  - Error codes are standardized, documented in the complete error-code matrix in
+    `docs/runtime-peripheral-native-module.md`, and exercised by test assertions.
+  - Dispatch handlers are complete and index-stable (GPIO 6..9, I2C 21..25, UART 26..31); all
+    argument-count and handle-validity failures are verified by `testDispatchHardenedBehavior`.
+  - Deterministic test coverage includes boundary and negative paths in four dedicated test methods.
+  - Full repository validation suite is green with no peripheral-induced regressions.
+- Follow-ups / Risks:
+  - Physical pin mux, electrical timing, and real sensor bus behaviour still require board-level
+    hardware-in-loop execution under Epic 6.
+  - Dispatch handle marshalling remains dependent on ROMizer/native ABI alignment in Epic 3.
   - Next candidate story: **E3-S1 — Implement ROMizer for class table/bytecode/native/static sections**.
 

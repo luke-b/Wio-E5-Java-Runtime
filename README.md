@@ -39,13 +39,13 @@ docs/
   runtime-module-boundaries.md
   runtime-bytecode-subset.md
   runtime-frame-stack-model.md
-   runtime-heap-gc-model.md
-   runtime-native-dispatch-table.md
-   runtime-power-native-module.md
-   runtime-peripheral-native-module.md
-   runtime-lorawan-native-module.md
-   runtime-nvconfig-native-module.md
-   runtime-stability-soak.md
+  runtime-heap-gc-model.md
+  runtime-native-dispatch-table.md
+  runtime-power-native-module.md
+  runtime-peripheral-native-module.md
+  runtime-lorawan-native-module.md
+  runtime-nvconfig-native-module.md
+  runtime-stability-soak.md
 src/main/java/wioe5/
   bus/      io/      lora/      runtime/      storage/      system/
 src/test/java/wioe5/runtime/
@@ -95,7 +95,7 @@ java -cp build/test-classes wioe5.runtime.RuntimeStabilitySoakTest
 - Deterministic `Power` native behavior and dispatch handlers: `docs/runtime-power-native-module.md`
 - Deterministic GPIO/I2C/UART native behavior and dispatch handlers: `docs/runtime-peripheral-native-module.md`
 - Deterministic LoRaWAN native behavior and process-loop contract: `docs/runtime-lorawan-native-module.md`
-- Deterministic NVConfig native behavior and wear-tracking model: `docs/runtime-nvconfig-native-module.md`
+- Deterministic NVConfig native behavior with wear-aware persistence: `docs/runtime-nvconfig-native-module.md`
 - Runtime long-loop soak profile: `docs/runtime-stability-soak.md`
 - Delivery roadmap and status tracking: `plan/production-readiness-implementation-plan.md`, `plan/progress-tracking.md`
 

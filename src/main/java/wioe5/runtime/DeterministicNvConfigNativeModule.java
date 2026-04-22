@@ -1,248 +1,145 @@
 package wioe5.runtime;
 
+import wioe5.storage.NVConfig;
+
 /**
  * Deterministic host-side implementation of {@code wioe5.storage.NVConfig}
- * native behavior with wear-aware write tracking.
- *
- * <p>Models a 4 KB Flash sector partitioned into six fixed keys (IDs 0–5),
- * each storing up to {@value #MAX_VALUE_BYTES} bytes. Write operations model
- * erase-before-write semantics: the previous value for a key is zeroed before
- * the new value is written. A per-key write counter enables wear-budget
- * enforcement, which is injected at test time via
- * {@link #setWriteBudgetPerKeyForTest(int)}.
- *
- * <p>Dispatch handlers for native indexes 32 ({@code NVConfig.read}) and
- * 33 ({@code NVConfig.write}) are produced by
- * {@link #createDefaultDispatchHandlers()}.
+ * with fixed-capacity wear-aware records and integrity checks.
  */
 public final class DeterministicNvConfigNativeModule {
-
     public static final int STATUS_OK = 0;
     public static final int ERROR_INVALID_ARGUMENT = -1;
-    public static final int ERROR_KEY_INVALID = -60;
-    public static final int ERROR_DATA_TOO_LARGE = -61;
-    public static final int ERROR_WRITE_BUDGET_EXCEEDED = -62;
-    public static final int ERROR_BUFFER_HANDLE_INVALID = -63;
-    public static final int ERROR_DISPATCH_STORAGE_FULL = -64;
+    public static final int ERROR_KEY_OUT_OF_RANGE = -60;
+    public static final int ERROR_LENGTH_OUT_OF_RANGE = -61;
+    public static final int ERROR_BUFFER_HANDLE_INVALID = -62;
+    public static final int ERROR_DISPATCH_STORAGE_FULL = -63;
+    public static final int ERROR_VALUE_NOT_FOUND = -64;
 
-    /** Number of defined NVConfig keys (KEY_LORA_REGION … KEY_APP_VERSION). */
-    public static final int KEY_COUNT = 6;
+    public static final int MAX_VALUE_LENGTH = 64;
 
-    /** Maximum value size per key, matching the architecture 64-byte limit. */
-    public static final int MAX_VALUE_BYTES = 64;
+    private static final int KEY_MIN = NVConfig.KEY_LORA_REGION;
+    private static final int KEY_MAX = NVConfig.KEY_APP_VERSION;
+    private static final int DEFAULT_SLOTS_PER_KEY = 4;
 
-    /**
-     * Sentinel stored-length value indicating a key has never been written
-     * (equivalent to an erased Flash page with no committed value).
-     */
-    private static final int UNWRITTEN = -1;
-
-    private static final int UNLIMITED_WRITE_BUDGET = Integer.MAX_VALUE;
-
-    private final byte[][] store;
-    private final int[] storedLengths;
-    private final int[] writeCounts;
-    private int writeBudgetPerKey;
-
+    private final FlashSector flashSector;
     private final byte[][] dispatchByteBuffers;
 
-    /** Create a module with the default dispatch-buffer capacity of 16. */
     public DeterministicNvConfigNativeModule() {
-        this(16);
+        this(new FlashSector(KEY_MAX + 1, DEFAULT_SLOTS_PER_KEY, MAX_VALUE_LENGTH), 32);
     }
 
-    /**
-     * Create a module with a specific dispatch-buffer capacity.
-     *
-     * @param maxDispatchByteBuffers capacity of the dispatch byte-buffer registry
-     */
-    public DeterministicNvConfigNativeModule(int maxDispatchByteBuffers) {
-        if (maxDispatchByteBuffers <= 0) {
-            throw new IllegalArgumentException("maxDispatchByteBuffers must be > 0");
+    public DeterministicNvConfigNativeModule(FlashSector flashSector, int maxDispatchByteBuffers) {
+        if (flashSector == null || maxDispatchByteBuffers <= 0) {
+            throw new IllegalArgumentException("flashSector must be non-null and maxDispatchByteBuffers must be > 0");
         }
-        store = new byte[KEY_COUNT][MAX_VALUE_BYTES];
-        storedLengths = new int[KEY_COUNT];
-        writeCounts = new int[KEY_COUNT];
-        dispatchByteBuffers = new byte[maxDispatchByteBuffers][];
-        writeBudgetPerKey = UNLIMITED_WRITE_BUDGET;
-        for (int i = 0; i < KEY_COUNT; i++) {
-            storedLengths[i] = UNWRITTEN;
-        }
+        this.flashSector = flashSector;
+        this.dispatchByteBuffers = new byte[maxDispatchByteBuffers][];
     }
 
-    /**
-     * Read the stored value for {@code key} into {@code buffer}.
-     *
-     * @param key    key ID (0–{@value #KEY_COUNT}-1)
-     * @param buffer destination buffer; may be smaller than the stored value
-     * @return number of bytes copied (0 if the key has never been written),
-     *         or a negative error code
-     */
     public int read(int key, byte[] buffer) {
-        if (!isValidKey(key)) {
-            return ERROR_KEY_INVALID;
-        }
         if (buffer == null) {
             return ERROR_INVALID_ARGUMENT;
         }
-        int stored = storedLengths[key];
-        if (stored == UNWRITTEN) {
-            return 0;
+        if (!isValidKey(key)) {
+            return ERROR_KEY_OUT_OF_RANGE;
         }
-        int toCopy = stored < buffer.length ? stored : buffer.length;
-        for (int i = 0; i < toCopy; i++) {
-            buffer[i] = store[key][i];
+
+        SlotRef latest = findLatestValidSlot(key);
+        if (latest == null) {
+            return ERROR_VALUE_NOT_FOUND;
         }
-        return toCopy;
+
+        int bytesToCopy = latest.slot.length;
+        if (bytesToCopy > buffer.length) {
+            bytesToCopy = buffer.length;
+        }
+        for (int i = 0; i < bytesToCopy; i++) {
+            buffer[i] = latest.slot.payload[i];
+        }
+        return bytesToCopy;
     }
 
-    /**
-     * Write {@code len} bytes from {@code data} to {@code key}.
-     * Models erase-before-write: existing bytes for the key are zeroed before
-     * the new value is committed.
-     *
-     * @param key  key ID (0–{@value #KEY_COUNT}-1)
-     * @param data source data
-     * @param len  number of bytes to write (must be &gt; 0 and ≤ {@value #MAX_VALUE_BYTES})
-     * @return {@link #STATUS_OK}, or a negative error code
-     */
     public int write(int key, byte[] data, int len) {
         if (!isValidKey(key)) {
-            return ERROR_KEY_INVALID;
+            return ERROR_KEY_OUT_OF_RANGE;
         }
-        if (data == null || len < 0 || len > data.length) {
-            return ERROR_INVALID_ARGUMENT;
+        int lengthStatus = validateDataLength(data, len);
+        if (lengthStatus != STATUS_OK) {
+            return lengthStatus;
         }
-        if (len > MAX_VALUE_BYTES) {
-            return ERROR_DATA_TOO_LARGE;
-        }
-        if (writeCounts[key] >= writeBudgetPerKey) {
-            return ERROR_WRITE_BUDGET_EXCEEDED;
-        }
-        for (int i = 0; i < MAX_VALUE_BYTES; i++) {
-            store[key][i] = 0;
-        }
-        for (int i = 0; i < len; i++) {
-            store[key][i] = data[i];
-        }
-        storedLengths[key] = len;
-        writeCounts[key]++;
+
+        SlotRef latest = findLatestValidSlot(key);
+        int targetSlotIndex = latest == null ? 0 : (latest.slotIndex + 1) % flashSector.slotsPerKey();
+        int generation = latest == null ? 1 : latest.slot.generation + 1;
+
+        FlashSlot slot = flashSector.slotAt(key, targetSlotIndex);
+        slot.erase();
+        slot.write(generation, data, len, checksum(key, generation, data, len));
         return STATUS_OK;
     }
 
-    // -------------------------------------------------------------------------
-    // Test-seam accessors
-    // -------------------------------------------------------------------------
-
-    /**
-     * Returns the number of times {@code key} has been written.
-     * Used to verify wear-tracking behavior in tests.
-     */
-    public int writeCountForKey(int key) {
-        if (!isValidKey(key)) {
-            return ERROR_KEY_INVALID;
-        }
-        return writeCounts[key];
-    }
-
-    /**
-     * Returns the stored byte count for {@code key}, or {@code -1} if the key
-     * has never been written.
-     */
-    public int storedLengthForKey(int key) {
-        if (!isValidKey(key)) {
-            return ERROR_KEY_INVALID;
-        }
-        return storedLengths[key];
-    }
-
-    /**
-     * Inject a per-key write budget for deterministic wear-limit tests.
-     *
-     * @param budget maximum number of write operations allowed per key
-     * @return {@link #STATUS_OK}, or {@link #ERROR_INVALID_ARGUMENT} if budget &lt; 0
-     */
-    public int setWriteBudgetPerKeyForTest(int budget) {
-        if (budget < 0) {
-            return ERROR_INVALID_ARGUMENT;
-        }
-        writeBudgetPerKey = budget;
-        return STATUS_OK;
-    }
-
-    // -------------------------------------------------------------------------
-    // Dispatch buffer registry
-    // -------------------------------------------------------------------------
-
-    /**
-     * Register a byte array for use in a dispatch call.
-     *
-     * @param data the array to register (its contents are copied)
-     * @return a positive 1-based handle, or a negative error code
-     */
     public int registerDispatchByteBuffer(byte[] data) {
         if (data == null) {
             return ERROR_INVALID_ARGUMENT;
         }
         for (int i = 0; i < dispatchByteBuffers.length; i++) {
             if (dispatchByteBuffers[i] == null) {
-                byte[] copy = new byte[data.length];
-                for (int j = 0; j < data.length; j++) {
-                    copy[j] = data[j];
-                }
-                dispatchByteBuffers[i] = copy;
+                dispatchByteBuffers[i] = copyBytes(data);
                 return i + 1;
             }
         }
         return ERROR_DISPATCH_STORAGE_FULL;
     }
 
-    /**
-     * Copy the current contents of the dispatch buffer identified by
-     * {@code handle}.
-     *
-     * @param handle 1-based handle returned by {@link #registerDispatchByteBuffer}
-     * @return a defensive copy, or {@code null} if the handle is invalid
-     */
     public byte[] copyDispatchByteBuffer(int handle) {
         byte[] buffer = resolveDispatchByteBuffer(handle);
         if (buffer == null) {
             return null;
         }
-        byte[] copy = new byte[buffer.length];
-        for (int i = 0; i < buffer.length; i++) {
-            copy[i] = buffer[i];
-        }
-        return copy;
+        return copyBytes(buffer);
     }
 
-    // -------------------------------------------------------------------------
-    // Native dispatch handler factory
-    // -------------------------------------------------------------------------
+    public int slotWriteCountForTest(int key, int slotIndex) {
+        if (!isValidKey(key)) {
+            return ERROR_KEY_OUT_OF_RANGE;
+        }
+        if (slotIndex < 0 || slotIndex >= flashSector.slotsPerKey()) {
+            return ERROR_INVALID_ARGUMENT;
+        }
+        return flashSector.slotAt(key, slotIndex).eraseCount;
+    }
 
-    /**
-     * Build a full-size handler array wired for NVConfig native indexes 32 and
-     * 33. All other slots return {@link VersionedNativeDispatchTable#ERROR_SYMBOL_NOT_FOUND}
-     * as placeholders until the corresponding native modules supply their own
-     * handlers.
-     *
-     * @return handler array suitable for
-     *         {@link VersionedNativeDispatchTable#createDefault createDefault}
-     */
+    public int corruptLatestRecordForTest(int key) {
+        if (!isValidKey(key)) {
+            return ERROR_KEY_OUT_OF_RANGE;
+        }
+        SlotRef latest = findLatestValidSlot(key);
+        if (latest == null) {
+            return ERROR_VALUE_NOT_FOUND;
+        }
+        if (latest.slot.length == 0) {
+            latest.slot.checksum ^= 0x55AA;
+            return STATUS_OK;
+        }
+        latest.slot.payload[0] ^= 0x5A;
+        return STATUS_OK;
+    }
+
+    public FlashSector flashSector() {
+        return flashSector;
+    }
+
     public VersionedNativeDispatchTable.NativeHandler[] createDefaultDispatchHandlers() {
         VersionedNativeDispatchTable.NativeHandler[] handlers =
                 new VersionedNativeDispatchTable.NativeHandler[VersionedNativeDispatchTable.defaultBindingCount()];
         for (int i = 0; i < handlers.length; i++) {
             handlers[i] = args -> VersionedNativeDispatchTable.ERROR_SYMBOL_NOT_FOUND;
         }
+
         handlers[32] = this::dispatchRead;
         handlers[33] = this::dispatchWrite;
         return handlers;
     }
-
-    // -------------------------------------------------------------------------
-    // Private helpers
-    // -------------------------------------------------------------------------
 
     private int dispatchRead(int[] args) {
         if (!argsLength(args, 2)) {
@@ -259,11 +156,31 @@ public final class DeterministicNvConfigNativeModule {
         if (!argsLength(args, 3)) {
             return ERROR_INVALID_ARGUMENT;
         }
-        byte[] data = resolveDispatchByteBuffer(args[1]);
-        if (data == null) {
+        byte[] payload = resolveDispatchByteBuffer(args[1]);
+        if (payload == null) {
             return ERROR_BUFFER_HANDLE_INVALID;
         }
-        return write(args[0], data, args[2]);
+        return write(args[0], payload, args[2]);
+    }
+
+    private SlotRef findLatestValidSlot(int key) {
+        SlotRef latest = null;
+        for (int slotIndex = 0; slotIndex < flashSector.slotsPerKey(); slotIndex++) {
+            FlashSlot slot = flashSector.slotAt(key, slotIndex);
+            if (!slot.programmed) {
+                continue;
+            }
+            if (slot.length < 0 || slot.length > flashSector.maxValueLength()) {
+                continue;
+            }
+            if (slot.checksum != checksum(key, slot.generation, slot.payload, slot.length)) {
+                continue;
+            }
+            if (latest == null || slot.generation > latest.slot.generation) {
+                latest = new SlotRef(slotIndex, slot);
+            }
+        }
+        return latest;
     }
 
     private byte[] resolveDispatchByteBuffer(int handle) {
@@ -274,11 +191,127 @@ public final class DeterministicNvConfigNativeModule {
         return dispatchByteBuffers[index];
     }
 
-    private static boolean argsLength(int[] args, int expected) {
-        return args != null && args.length == expected;
+    private static int validateDataLength(byte[] data, int len) {
+        if (data == null) {
+            return ERROR_INVALID_ARGUMENT;
+        }
+        if (len < 0 || len > data.length || len > MAX_VALUE_LENGTH) {
+            return ERROR_LENGTH_OUT_OF_RANGE;
+        }
+        return STATUS_OK;
     }
 
     private static boolean isValidKey(int key) {
-        return key >= 0 && key < KEY_COUNT;
+        return key >= KEY_MIN && key <= KEY_MAX;
+    }
+
+    private static boolean argsLength(int[] args, int expectedLength) {
+        return args != null && args.length == expectedLength;
+    }
+
+    private static int checksum(int key, int generation, byte[] data, int len) {
+        int crc = 0xFFFF;
+        crc = crc16Step(crc, key & 0xFF);
+        crc = crc16Step(crc, generation & 0xFF);
+        crc = crc16Step(crc, (generation >> 8) & 0xFF);
+        crc = crc16Step(crc, len & 0xFF);
+        for (int i = 0; i < len; i++) {
+            crc = crc16Step(crc, data[i] & 0xFF);
+        }
+        return crc & 0xFFFF;
+    }
+
+    private static int crc16Step(int crc, int value) {
+        crc ^= value << 8;
+        for (int i = 0; i < 8; i++) {
+            if ((crc & 0x8000) != 0) {
+                crc = (crc << 1) ^ 0x1021;
+            } else {
+                crc <<= 1;
+            }
+        }
+        return crc & 0xFFFF;
+    }
+
+    private static byte[] copyBytes(byte[] source) {
+        byte[] copy = new byte[source.length];
+        for (int i = 0; i < source.length; i++) {
+            copy[i] = source[i];
+        }
+        return copy;
+    }
+
+    private static final class SlotRef {
+        private final int slotIndex;
+        private final FlashSlot slot;
+
+        private SlotRef(int slotIndex, FlashSlot slot) {
+            this.slotIndex = slotIndex;
+            this.slot = slot;
+        }
+    }
+
+    public static final class FlashSector {
+        private final FlashSlot[][] slots;
+        private final int maxValueLength;
+
+        public FlashSector(int keyCount, int slotsPerKey, int maxValueLength) {
+            if (keyCount <= 0 || slotsPerKey <= 0 || maxValueLength <= 0) {
+                throw new IllegalArgumentException("all capacities must be > 0");
+            }
+            this.slots = new FlashSlot[keyCount][slotsPerKey];
+            this.maxValueLength = maxValueLength;
+            for (int key = 0; key < keyCount; key++) {
+                for (int slot = 0; slot < slotsPerKey; slot++) {
+                    slots[key][slot] = new FlashSlot(maxValueLength);
+                }
+            }
+        }
+
+        private FlashSlot slotAt(int key, int slotIndex) {
+            return slots[key][slotIndex];
+        }
+
+        private int slotsPerKey() {
+            return slots[0].length;
+        }
+
+        private int maxValueLength() {
+            return maxValueLength;
+        }
+    }
+
+    private static final class FlashSlot {
+        private final byte[] payload;
+        private boolean programmed;
+        private int generation;
+        private int length;
+        private int checksum;
+        private int eraseCount;
+
+        private FlashSlot(int maxValueLength) {
+            this.payload = new byte[maxValueLength];
+        }
+
+        private void erase() {
+            programmed = false;
+            generation = 0;
+            length = 0;
+            checksum = 0;
+            eraseCount++;
+            for (int i = 0; i < payload.length; i++) {
+                payload[i] = 0;
+            }
+        }
+
+        private void write(int generation, byte[] data, int len, int checksum) {
+            this.generation = generation;
+            this.length = len;
+            this.checksum = checksum;
+            for (int i = 0; i < payload.length; i++) {
+                payload[i] = i < len ? data[i] : 0;
+            }
+            programmed = true;
+        }
     }
 }

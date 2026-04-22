@@ -1,156 +1,79 @@
 package wioe5.runtime;
 
+import wioe5.storage.NVConfig;
+
 public final class DeterministicNvConfigNativeModuleTest {
     private DeterministicNvConfigNativeModuleTest() {
     }
 
     public static void main(String[] args) {
-        testReadWriteBasicFlow();
-        testEraseBeforeWrite();
-        testWearTracking();
-        testBoundaryConditions();
+        testWriteReadPersistenceAndIntegrity();
+        testWearAwareSlotRotation();
         testDispatchIntegration();
         testNegativePaths();
     }
 
-    private static void testReadWriteBasicFlow() {
-        DeterministicNvConfigNativeModule module = new DeterministicNvConfigNativeModule();
+    private static void testWriteReadPersistenceAndIntegrity() {
+        DeterministicNvConfigNativeModule.FlashSector flashSector =
+                new DeterministicNvConfigNativeModule.FlashSector(6, 4, DeterministicNvConfigNativeModule.MAX_VALUE_LENGTH);
+        DeterministicNvConfigNativeModule module = new DeterministicNvConfigNativeModule(flashSector, 16);
 
-        byte[] readBuf = new byte[DeterministicNvConfigNativeModule.MAX_VALUE_BYTES];
+        byte[] appKey = new byte[16];
+        for (int i = 0; i < appKey.length; i++) {
+            appKey[i] = (byte) (0xA0 + i);
+        }
+        assertEquals(DeterministicNvConfigNativeModule.STATUS_OK,
+                module.write(NVConfig.KEY_LORA_APPKEY, appKey, appKey.length),
+                "write app key");
 
-        // Unwritten key returns 0 bytes
-        assertEquals(0, module.read(0, readBuf), "read unwritten key 0 returns 0");
-        assertEquals(-1, module.storedLengthForKey(0), "unwritten stored length is -1");
-
-        // Write and read back each key with distinct content
-        for (int key = 0; key < DeterministicNvConfigNativeModule.KEY_COUNT; key++) {
-            byte[] data = new byte[key + 1];
-            for (int i = 0; i < data.length; i++) {
-                data[i] = (byte) (key * 10 + i);
-            }
-            assertEquals(DeterministicNvConfigNativeModule.STATUS_OK,
-                    module.write(key, data, data.length),
-                    "write key " + key);
-            assertEquals(data.length, module.storedLengthForKey(key), "stored length key " + key);
-
-            byte[] out = new byte[DeterministicNvConfigNativeModule.MAX_VALUE_BYTES];
-            assertEquals(data.length, module.read(key, out), "read key " + key + " bytes");
-            for (int i = 0; i < data.length; i++) {
-                assertEquals(data[i] & 0xFF, out[i] & 0xFF, "key " + key + " byte[" + i + "]");
-            }
+        byte[] readBuffer = new byte[16];
+        assertEquals(16, module.read(NVConfig.KEY_LORA_APPKEY, readBuffer), "read app key");
+        for (int i = 0; i < 16; i++) {
+            assertEquals(appKey[i] & 0xFF, readBuffer[i] & 0xFF, "app key byte " + i);
         }
 
-        // Partial-buffer read: buffer smaller than stored data
-        byte[] partial = new byte[3];
-        // Write 10 bytes to key 0
-        byte[] big = new byte[10];
-        for (int i = 0; i < big.length; i++) big[i] = (byte) (i + 1);
+        DeterministicNvConfigNativeModule afterReset = new DeterministicNvConfigNativeModule(flashSector, 16);
+        byte[] resetReadBuffer = new byte[16];
+        assertEquals(16, afterReset.read(NVConfig.KEY_LORA_APPKEY, resetReadBuffer), "read app key after reset");
+        for (int i = 0; i < 16; i++) {
+            assertEquals(appKey[i] & 0xFF, resetReadBuffer[i] & 0xFF, "app key byte after reset " + i);
+        }
+
         assertEquals(DeterministicNvConfigNativeModule.STATUS_OK,
-                module.write(0, big, big.length),
-                "write 10 bytes to key 0");
-        assertEquals(3, module.read(0, partial), "partial read returns 3");
-        assertEquals(1, partial[0] & 0xFF, "partial[0]");
-        assertEquals(2, partial[1] & 0xFF, "partial[1]");
-        assertEquals(3, partial[2] & 0xFF, "partial[2]");
+                afterReset.corruptLatestRecordForTest(NVConfig.KEY_LORA_APPKEY),
+                "corrupt latest");
+        assertEquals(DeterministicNvConfigNativeModule.ERROR_VALUE_NOT_FOUND,
+                afterReset.read(NVConfig.KEY_LORA_APPKEY, new byte[16]),
+                "corruption rejected by checksum");
     }
 
-    private static void testEraseBeforeWrite() {
+    private static void testWearAwareSlotRotation() {
         DeterministicNvConfigNativeModule module = new DeterministicNvConfigNativeModule();
+        for (int i = 0; i < 8; i++) {
+            byte[] value = new byte[]{(byte) i, (byte) (i + 1), (byte) (i + 2)};
+            assertEquals(DeterministicNvConfigNativeModule.STATUS_OK,
+                    module.write(NVConfig.KEY_SENSOR_CAL, value, value.length),
+                    "wear write " + i);
+        }
 
-        // Write a full 64-byte value
-        byte[] full = new byte[DeterministicNvConfigNativeModule.MAX_VALUE_BYTES];
-        for (int i = 0; i < full.length; i++) full[i] = (byte) 0xFF;
-        assertEquals(DeterministicNvConfigNativeModule.STATUS_OK,
-                module.write(1, full, full.length),
-                "write 64 bytes");
+        int min = Integer.MAX_VALUE;
+        int max = Integer.MIN_VALUE;
+        int sum = 0;
+        for (int slot = 0; slot < 4; slot++) {
+            int count = module.slotWriteCountForTest(NVConfig.KEY_SENSOR_CAL, slot);
+            min = Math.min(min, count);
+            max = Math.max(max, count);
+            sum += count;
+        }
 
-        // Overwrite with a shorter value
-        byte[] shorter = new byte[]{0x11, 0x22, 0x33};
-        assertEquals(DeterministicNvConfigNativeModule.STATUS_OK,
-                module.write(1, shorter, shorter.length),
-                "overwrite with shorter value");
+        assertEquals(8, sum, "total wear count");
+        assertTrue(max - min <= 1, "wear spread is bounded");
 
-        // Read back: should only see the shorter value, no old trailing bytes
-        byte[] readBuf = new byte[DeterministicNvConfigNativeModule.MAX_VALUE_BYTES];
-        assertEquals(3, module.read(1, readBuf), "read after erase-before-write");
-        assertEquals(0x11, readBuf[0] & 0xFF, "byte[0] after overwrite");
-        assertEquals(0x22, readBuf[1] & 0xFF, "byte[1] after overwrite");
-        assertEquals(0x33, readBuf[2] & 0xFF, "byte[2] after overwrite");
-        // Erase semantics: bytes beyond new length were zeroed
-        assertEquals(0, readBuf[3] & 0xFF, "byte[3] must be zeroed after erase");
-        assertEquals(0, readBuf[63] & 0xFF, "byte[63] must be zeroed after erase");
-    }
-
-    private static void testWearTracking() {
-        DeterministicNvConfigNativeModule module = new DeterministicNvConfigNativeModule();
-        byte[] data = new byte[]{1, 2, 3};
-
-        // Initial write count is zero
-        assertEquals(0, module.writeCountForKey(2), "initial write count for key 2");
-
-        // Each successful write increments the count
-        assertEquals(DeterministicNvConfigNativeModule.STATUS_OK,
-                module.write(2, data, data.length), "write 1");
-        assertEquals(1, module.writeCountForKey(2), "write count after 1st write");
-        assertEquals(DeterministicNvConfigNativeModule.STATUS_OK,
-                module.write(2, data, data.length), "write 2");
-        assertEquals(2, module.writeCountForKey(2), "write count after 2nd write");
-
-        // Reads do not increment write count
-        byte[] buf = new byte[8];
-        assertEquals(3, module.read(2, buf), "read does not count as write");
-        assertEquals(2, module.writeCountForKey(2), "write count unchanged after read");
-
-        // Enforce a write budget: set budget to 3, exhaust it, verify rejection
-        assertEquals(DeterministicNvConfigNativeModule.STATUS_OK,
-                module.setWriteBudgetPerKeyForTest(3), "set budget 3");
-        assertEquals(DeterministicNvConfigNativeModule.STATUS_OK,
-                module.write(2, data, data.length), "write 3 (within budget)");
-        assertEquals(3, module.writeCountForKey(2), "write count at budget limit");
-        assertEquals(DeterministicNvConfigNativeModule.ERROR_WRITE_BUDGET_EXCEEDED,
-                module.write(2, data, data.length), "write 4 exceeds budget");
-        assertEquals(3, module.writeCountForKey(2), "write count unchanged after budget exceeded");
-
-        // Different key has its own independent write count
-        assertEquals(0, module.writeCountForKey(3), "key 3 write count independent");
-        assertEquals(DeterministicNvConfigNativeModule.STATUS_OK,
-                module.write(3, data, data.length), "write to key 3 allowed");
-        assertEquals(1, module.writeCountForKey(3), "key 3 write count incremented");
-    }
-
-    private static void testBoundaryConditions() {
-        DeterministicNvConfigNativeModule module = new DeterministicNvConfigNativeModule();
-
-        // Write exactly MAX_VALUE_BYTES
-        byte[] maxData = new byte[DeterministicNvConfigNativeModule.MAX_VALUE_BYTES];
-        for (int i = 0; i < maxData.length; i++) maxData[i] = (byte) i;
-        assertEquals(DeterministicNvConfigNativeModule.STATUS_OK,
-                module.write(0, maxData, maxData.length), "write max bytes");
-        byte[] readBuf = new byte[DeterministicNvConfigNativeModule.MAX_VALUE_BYTES];
-        assertEquals(DeterministicNvConfigNativeModule.MAX_VALUE_BYTES,
-                module.read(0, readBuf), "read back max bytes");
-        assertEquals(63, readBuf[63] & 0xFF, "last byte correct");
-
-        // Attempt to write MAX_VALUE_BYTES + 1 via len exceeds stored data
-        byte[] oversize = new byte[DeterministicNvConfigNativeModule.MAX_VALUE_BYTES + 1];
-        assertEquals(DeterministicNvConfigNativeModule.ERROR_DATA_TOO_LARGE,
-                module.write(0, oversize, oversize.length), "write oversized data rejected");
-
-        // Read into exact-size buffer
-        byte[] exact = new byte[DeterministicNvConfigNativeModule.MAX_VALUE_BYTES];
-        assertEquals(DeterministicNvConfigNativeModule.MAX_VALUE_BYTES,
-                module.read(0, exact), "read into exact-size buffer");
-
-        // Read into buffer of size 1 (truncation)
-        byte[] one = new byte[1];
-        assertEquals(1, module.read(0, one), "truncated read returns 1");
-        assertEquals(0, one[0] & 0xFF, "truncated read returns first byte");
-
-        // Write zero bytes is allowed (len=0)
-        assertEquals(DeterministicNvConfigNativeModule.STATUS_OK,
-                module.write(1, new byte[0], 0), "write zero-length value");
-        assertEquals(0, module.storedLengthForKey(1), "stored length 0 after zero-len write");
-        assertEquals(0, module.read(1, readBuf), "read after zero-len write returns 0");
+        byte[] latest = new byte[8];
+        assertEquals(3, module.read(NVConfig.KEY_SENSOR_CAL, latest), "read latest");
+        assertEquals(7, latest[0] & 0xFF, "latest byte 0");
+        assertEquals(8, latest[1] & 0xFF, "latest byte 1");
+        assertEquals(9, latest[2] & 0xFF, "latest byte 2");
     }
 
     private static void testDispatchIntegration() {
@@ -159,165 +82,81 @@ public final class DeterministicNvConfigNativeModuleTest {
                 VersionedNativeDispatchTable.createDefault(5, 5, 5, module.createDefaultDispatchHandlers());
         assertEquals(VersionedNativeDispatchTable.STATUS_OK, table.verifyCompatibility(5), "compatibility");
 
-        // Register write data buffer
-        byte[] writeData = new byte[]{(byte) 0xAA, (byte) 0xBB, (byte) 0xCC};
-        int writeHandle = module.registerDispatchByteBuffer(writeData);
-        assertTrue(writeHandle > 0, "write data handle allocated");
+        int writeHandle = module.registerDispatchByteBuffer(new byte[]{4, 5, 6, 7});
+        int readHandle = module.registerDispatchByteBuffer(new byte[8]);
+        assertTrue(writeHandle > 0 && readHandle > 0, "dispatch handles");
 
-        // Dispatch write(key=4, data=writeHandle, len=3)
         assertEquals(DeterministicNvConfigNativeModule.STATUS_OK,
                 table.dispatch(
                         VersionedNativeDispatchTable.CLASS_HASH_NVCONFIG,
                         VersionedNativeDispatchTable.METHOD_HASH_NVCONFIG_WRITE,
-                        new int[]{4, writeHandle, 3}),
-                "dispatch write key 4");
-        assertEquals(1, module.writeCountForKey(4), "write count incremented via dispatch");
-
-        // Register a read output buffer
-        int readHandle = module.registerDispatchByteBuffer(new byte[8]);
-        assertTrue(readHandle > 0, "read buffer handle allocated");
-
-        // Dispatch read(key=4, buffer=readHandle)
-        assertEquals(3,
+                        new int[]{NVConfig.KEY_APP_VERSION, writeHandle, 4}),
+                "dispatch write");
+        assertEquals(4,
                 table.dispatch(
                         VersionedNativeDispatchTable.CLASS_HASH_NVCONFIG,
                         VersionedNativeDispatchTable.METHOD_HASH_NVCONFIG_READ,
-                        new int[]{4, readHandle}),
-                "dispatch read key 4 returns 3 bytes");
+                        new int[]{NVConfig.KEY_APP_VERSION, readHandle}),
+                "dispatch read");
 
-        byte[] copied = module.copyDispatchByteBuffer(readHandle);
-        assertEquals(0xAA, copied[0] & 0xFF, "dispatch read byte[0]");
-        assertEquals(0xBB, copied[1] & 0xFF, "dispatch read byte[1]");
-        assertEquals(0xCC, copied[2] & 0xFF, "dispatch read byte[2]");
-
-        // Dispatch read unwritten key returns 0
-        int emptyHandle = module.registerDispatchByteBuffer(new byte[8]);
-        assertEquals(0,
-                table.dispatch(
-                        VersionedNativeDispatchTable.CLASS_HASH_NVCONFIG,
-                        VersionedNativeDispatchTable.METHOD_HASH_NVCONFIG_READ,
-                        new int[]{5, emptyHandle}),
-                "dispatch read unwritten key returns 0");
-
-        // Non-NVConfig symbol returns ERROR_SYMBOL_NOT_FOUND
-        assertEquals(VersionedNativeDispatchTable.ERROR_SYMBOL_NOT_FOUND,
-                table.dispatch(
-                        VersionedNativeDispatchTable.CLASS_HASH_POWER,
-                        VersionedNativeDispatchTable.METHOD_HASH_POWER_MILLIS,
-                        new int[0]),
-                "non-NVConfig symbol not found");
+        byte[] readBack = module.copyDispatchByteBuffer(readHandle);
+        assertEquals(4, readBack[0] & 0xFF, "dispatch read byte 0");
+        assertEquals(5, readBack[1] & 0xFF, "dispatch read byte 1");
+        assertEquals(6, readBack[2] & 0xFF, "dispatch read byte 2");
+        assertEquals(7, readBack[3] & 0xFF, "dispatch read byte 3");
     }
 
     private static void testNegativePaths() {
-        DeterministicNvConfigNativeModule module = new DeterministicNvConfigNativeModule(2);
-        byte[] data = new byte[]{1, 2, 3};
-        byte[] buf = new byte[8];
+        DeterministicNvConfigNativeModule module =
+                new DeterministicNvConfigNativeModule(new DeterministicNvConfigNativeModule.FlashSector(6, 2, 64), 1);
 
-        // Null buffer in read
+        assertEquals(DeterministicNvConfigNativeModule.ERROR_VALUE_NOT_FOUND,
+                module.read(NVConfig.KEY_LORA_REGION, new byte[4]),
+                "read missing key");
+        assertEquals(DeterministicNvConfigNativeModule.ERROR_KEY_OUT_OF_RANGE,
+                module.write(99, new byte[]{1}, 1),
+                "invalid key");
+        assertEquals(DeterministicNvConfigNativeModule.ERROR_LENGTH_OUT_OF_RANGE,
+                module.write(NVConfig.KEY_LORA_REGION, new byte[65], 65),
+                "value too large");
+        assertEquals(DeterministicNvConfigNativeModule.ERROR_LENGTH_OUT_OF_RANGE,
+                module.write(NVConfig.KEY_LORA_REGION, new byte[]{1, 2}, 3),
+                "len out of range");
         assertEquals(DeterministicNvConfigNativeModule.ERROR_INVALID_ARGUMENT,
-                module.read(0, null), "read null buffer");
+                module.read(NVConfig.KEY_LORA_REGION, null),
+                "null read buffer");
 
-        // Null data in write
-        assertEquals(DeterministicNvConfigNativeModule.ERROR_INVALID_ARGUMENT,
-                module.write(0, null, 0), "write null data");
-
-        // len > data.length
-        assertEquals(DeterministicNvConfigNativeModule.ERROR_INVALID_ARGUMENT,
-                module.write(0, data, data.length + 1), "write len > data.length");
-
-        // Negative len
-        assertEquals(DeterministicNvConfigNativeModule.ERROR_INVALID_ARGUMENT,
-                module.write(0, data, -1), "write negative len");
-
-        // Invalid key (below range)
-        assertEquals(DeterministicNvConfigNativeModule.ERROR_KEY_INVALID,
-                module.read(-1, buf), "read invalid key -1");
-        assertEquals(DeterministicNvConfigNativeModule.ERROR_KEY_INVALID,
-                module.write(-1, data, data.length), "write invalid key -1");
-
-        // Invalid key (above range)
-        assertEquals(DeterministicNvConfigNativeModule.ERROR_KEY_INVALID,
-                module.read(DeterministicNvConfigNativeModule.KEY_COUNT, buf),
-                "read invalid key above range");
-        assertEquals(DeterministicNvConfigNativeModule.ERROR_KEY_INVALID,
-                module.write(DeterministicNvConfigNativeModule.KEY_COUNT, data, data.length),
-                "write invalid key above range");
-
-        // writeCountForKey / storedLengthForKey with invalid key
-        assertEquals(DeterministicNvConfigNativeModule.ERROR_KEY_INVALID,
-                module.writeCountForKey(-1), "writeCountForKey invalid key");
-        assertEquals(DeterministicNvConfigNativeModule.ERROR_KEY_INVALID,
-                module.storedLengthForKey(DeterministicNvConfigNativeModule.KEY_COUNT),
-                "storedLengthForKey invalid key");
-
-        // setWriteBudgetPerKeyForTest with negative budget
-        assertEquals(DeterministicNvConfigNativeModule.ERROR_INVALID_ARGUMENT,
-                module.setWriteBudgetPerKeyForTest(-1), "negative write budget");
-
-        // registerDispatchByteBuffer overflow
-        int h1 = module.registerDispatchByteBuffer(new byte[]{1});
-        int h2 = module.registerDispatchByteBuffer(new byte[]{2});
-        assertTrue(h1 > 0, "first byte handle");
-        assertTrue(h2 > 0, "second byte handle");
+        assertTrue(module.registerDispatchByteBuffer(new byte[]{1}) > 0, "first dispatch handle");
         assertEquals(DeterministicNvConfigNativeModule.ERROR_DISPATCH_STORAGE_FULL,
-                module.registerDispatchByteBuffer(new byte[]{3}), "byte storage full");
+                module.registerDispatchByteBuffer(new byte[]{2}),
+                "dispatch storage full");
 
-        // copyDispatchByteBuffer with invalid handle
-        assertEquals(null, module.copyDispatchByteBuffer(0), "handle 0 invalid");
-        assertEquals(null, module.copyDispatchByteBuffer(999), "handle 999 invalid");
-
-        // Dispatch: invalid argument count
         VersionedNativeDispatchTable table =
                 VersionedNativeDispatchTable.createDefault(5, 5, 5, module.createDefaultDispatchHandlers());
-        assertEquals(VersionedNativeDispatchTable.STATUS_OK, table.verifyCompatibility(5), "compat");
+        assertEquals(VersionedNativeDispatchTable.STATUS_OK, table.verifyCompatibility(5), "compatibility");
         assertEquals(DeterministicNvConfigNativeModule.ERROR_INVALID_ARGUMENT,
                 table.dispatch(
                         VersionedNativeDispatchTable.CLASS_HASH_NVCONFIG,
                         VersionedNativeDispatchTable.METHOD_HASH_NVCONFIG_READ,
-                        new int[]{0}),
-                "dispatch read wrong arg count");
-        assertEquals(DeterministicNvConfigNativeModule.ERROR_INVALID_ARGUMENT,
+                        new int[]{NVConfig.KEY_LORA_REGION}),
+                "dispatch read arg length");
+        assertEquals(DeterministicNvConfigNativeModule.ERROR_BUFFER_HANDLE_INVALID,
                 table.dispatch(
                         VersionedNativeDispatchTable.CLASS_HASH_NVCONFIG,
                         VersionedNativeDispatchTable.METHOD_HASH_NVCONFIG_WRITE,
-                        new int[]{0, 1}),
-                "dispatch write wrong arg count");
-
-        // Dispatch: invalid buffer handle
-        DeterministicNvConfigNativeModule cleanModule = new DeterministicNvConfigNativeModule();
-        VersionedNativeDispatchTable cleanTable =
-                VersionedNativeDispatchTable.createDefault(5, 5, 5, cleanModule.createDefaultDispatchHandlers());
-        assertEquals(VersionedNativeDispatchTable.STATUS_OK, cleanTable.verifyCompatibility(5), "clean compat");
-        assertEquals(DeterministicNvConfigNativeModule.ERROR_BUFFER_HANDLE_INVALID,
-                cleanTable.dispatch(
-                        VersionedNativeDispatchTable.CLASS_HASH_NVCONFIG,
-                        VersionedNativeDispatchTable.METHOD_HASH_NVCONFIG_READ,
-                        new int[]{0, 999}),
-                "dispatch read invalid buffer handle");
-        assertEquals(DeterministicNvConfigNativeModule.ERROR_BUFFER_HANDLE_INVALID,
-                cleanTable.dispatch(
-                        VersionedNativeDispatchTable.CLASS_HASH_NVCONFIG,
-                        VersionedNativeDispatchTable.METHOD_HASH_NVCONFIG_WRITE,
-                        new int[]{0, 999, 1}),
-                "dispatch write invalid buffer handle");
+                        new int[]{NVConfig.KEY_LORA_REGION, 999, 1}),
+                "dispatch invalid handle");
     }
 
     private static void assertEquals(int expected, int actual, String label) {
         if (expected != actual) {
-            throw new AssertionError(label + ": expected " + expected + " but was " + actual);
-        }
-    }
-
-    private static void assertEquals(Object expected, Object actual, String label) {
-        boolean equal = (expected == null) ? (actual == null) : expected.equals(actual);
-        if (!equal) {
-            throw new AssertionError(label + ": expected " + expected + " but was " + actual);
+            throw new AssertionError(label + " expected " + expected + " but was " + actual);
         }
     }
 
     private static void assertTrue(boolean condition, String label) {
         if (!condition) {
-            throw new AssertionError(label + ": expected true");
+            throw new AssertionError(label + " expected true");
         }
     }
 }
