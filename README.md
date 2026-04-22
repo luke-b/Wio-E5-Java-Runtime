@@ -52,6 +52,7 @@ src/test/java/wioe5/runtime/
   RuntimeModuleRegistryTest.java
   BytecodeInterpreterModuleTest.java
   DeterministicFrameStackModuleTest.java
+  DeterministicHeapManagerModuleTest.java
   DeterministicPeripheralNativeModuleTest.java
   DeterministicPowerNativeModuleTest.java
   DeterministicLoRaNativeModuleTest.java
