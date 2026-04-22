@@ -26,6 +26,9 @@ This document defines the runtime-core module boundaries required by the archite
     - `DeterministicPowerNativeModule` provides deterministic host-side
       implementations for `wioe5.system.Power` native methods and dispatch
       handlers for power-native indexes.
+    - `DeterministicPeripheralNativeModule` provides deterministic host-side
+      implementations for GPIO/I2C/UART native methods with standardized
+      failure codes and dispatch handlers for peripheral-native indexes.
 
 5. **RuntimeModuleRegistry**
    - Owns immutable runtime wiring and integration-point validation.

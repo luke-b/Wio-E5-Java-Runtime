@@ -291,3 +291,50 @@
   - This slice provides host-side deterministic native behavior; board-level HAL validation remains required in later hardware-in-loop work.
   - `Power.delayMicros` currently models deterministic tick advancement without cycle-accurate calibration, which is acceptable for host verification but not final silicon timing characterization.
   - Next candidate story: **E2-S3 — Implement `wioe5.io.GPIO`, `wioe5.bus.I2C`, `wioe5.bus.UART` natives**.
+
+## 2026-04-22 — E2-S3 `wioe5.io.GPIO`, `wioe5.bus.I2C`, `wioe5.bus.UART` Natives
+- Story Selected: **E2-S3 — Implement `wioe5.io.GPIO`, `wioe5.bus.I2C`, `wioe5.bus.UART` natives**.
+- Selection Rationale:
+  - Selected by strict epic/story priority order as the first incomplete story after E2-S2 completion.
+  - No dependency blocker existed because native dispatch table mappings and power-native handler pattern were already established.
+- Acceptance Checkpoints:
+  - Deterministic GPIO behaviors enforce pin/mode/value boundaries and support loopback-style correctness validation.
+  - Deterministic I2C behaviors enforce init/speed/address/length constraints and support register-style write-read sensor flows.
+  - Deterministic UART behaviors enforce UART ID/init/baud/buffer constraints, preserve `read == -1` empty behavior, and support loopback validation.
+  - Dispatch handlers exist and are wired for GPIO (`6..9`), I2C (`21..25`), and UART (`26..31`) symbol indexes with explicit failure codes.
+- Files Changed:
+  - `src/main/java/wioe5/runtime/DeterministicPeripheralNativeModule.java`
+  - `src/test/java/wioe5/runtime/DeterministicPeripheralNativeModuleTest.java`
+  - `docs/runtime-peripheral-native-module.md`
+  - `docs/runtime-module-boundaries.md`
+  - `README.md`
+  - `plan/progress-tracking.md`
+  - `plan/implementation-notes.md`
+- Key Decisions and Tradeoffs:
+  - Implemented one fixed-capacity deterministic module spanning GPIO/I2C/UART to standardize error handling and keep dispatch wiring minimal and static.
+  - Added optional loopback seams for GPIO and UART plus deterministic I2C device registration to provide host-side correctness/negative-path evidence without non-deterministic hardware dependencies.
+  - Used handle-based dispatch storage for byte buffers/strings so array/string native arguments can be validated through `VersionedNativeDispatchTable` while preserving bounded-memory behavior.
+- Tests Added/Updated:
+  - Added `DeterministicPeripheralNativeModuleTest` covering:
+    - GPIO positive path and mode/value boundary failures
+    - I2C init/speed/address/length/device failures and register read/write flows
+    - UART begin/available/read/write/print/println behavior, empty-read sentinel, and overflow handling
+    - dispatch-level integration for GPIO/I2C/UART handlers with invalid handle negative cases
+- Validation Results:
+  - `rm -rf build/test-classes && mkdir -p build/test-classes && javac -d build/test-classes $(find src/main/java -name '*.java' | sort) $(find src/test/java -name '*.java' | sort)` ✅
+  - `java -cp build/test-classes wioe5.runtime.RuntimeModuleRegistryTest` ✅
+  - `java -cp build/test-classes wioe5.runtime.BytecodeInterpreterModuleTest` ✅
+  - `java -cp build/test-classes wioe5.runtime.DeterministicFrameStackModuleTest` ✅
+  - `java -cp build/test-classes wioe5.runtime.DeterministicHeapManagerModuleTest` ✅
+  - `java -cp build/test-classes wioe5.runtime.DeterministicPeripheralNativeModuleTest` ✅
+  - `java -cp build/test-classes wioe5.runtime.DeterministicPowerNativeModuleTest` ✅
+  - `java -cp build/test-classes wioe5.runtime.VersionedNativeDispatchTableTest` ✅
+  - `java -cp build/test-classes wioe5.runtime.RuntimeStabilitySoakTest` ✅
+- DoD Evidence:
+  - GPIO/I2C/UART native behaviors with standardized return codes are implemented in `DeterministicPeripheralNativeModule`.
+  - Loopback and sensor-style validation evidence is provided by deterministic GPIO/UART loopback and I2C register-flow assertions in `DeterministicPeripheralNativeModuleTest`.
+  - Peripheral symbol dispatch coverage is implemented by `createDefaultDispatchHandlers()` and verified in the dispatch integration portion of `DeterministicPeripheralNativeModuleTest`.
+- Follow-ups / Risks:
+  - This slice is host-side deterministic verification; physical pin mux/electrical timing and real sensor bus behavior still require board-level HIL execution.
+  - Dispatch handle marshalling is a bounded host validation seam and will need ROMizer/runtime ABI alignment in Epic 3.
+  - Next candidate story: **E2-S4 — Implement `wioe5.lora.LoRaWAN` natives and process loop contract**.
