@@ -53,6 +53,7 @@ src/test/java/wioe5/runtime/
   BytecodeInterpreterModuleTest.java
   DeterministicFrameStackModuleTest.java
   DeterministicHeapManagerModuleTest.java
+  DeterministicRomizerTest.java
   DeterministicPeripheralNativeModuleTest.java
   DeterministicPowerNativeModuleTest.java
   DeterministicLoRaNativeModuleTest.java
@@ -76,6 +77,7 @@ java -cp build/test-classes wioe5.runtime.RuntimeModuleRegistryTest
 java -cp build/test-classes wioe5.runtime.BytecodeInterpreterModuleTest
 java -cp build/test-classes wioe5.runtime.DeterministicFrameStackModuleTest
 java -cp build/test-classes wioe5.runtime.DeterministicHeapManagerModuleTest
+java -cp build/test-classes wioe5.runtime.DeterministicRomizerTest
 java -cp build/test-classes wioe5.runtime.DeterministicPeripheralNativeModuleTest
 java -cp build/test-classes wioe5.runtime.DeterministicPowerNativeModuleTest
 java -cp build/test-classes wioe5.runtime.DeterministicLoRaNativeModuleTest
@@ -91,6 +93,7 @@ java -cp build/test-classes wioe5.runtime.RuntimeStabilitySoakTest
 - Supported bytecode subset and interpreter errors: `docs/runtime-bytecode-subset.md`
 - Frame/stack deterministic model: `docs/runtime-frame-stack-model.md`
 - Heap and GC deterministic model: `docs/runtime-heap-gc-model.md`
+- ROMizer artifact format and validator contract: `docs/runtime-romizer-format.md`
 - Native binding dispatch table and compatibility contract: `docs/runtime-native-dispatch-table.md`
 - Deterministic `Power` native behavior and dispatch handlers: `docs/runtime-power-native-module.md`
 - Deterministic GPIO/I2C/UART native behavior and dispatch handlers: `docs/runtime-peripheral-native-module.md`

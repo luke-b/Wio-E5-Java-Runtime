@@ -509,3 +509,62 @@
   - Dispatch handle marshalling remains dependent on ROMizer/native ABI alignment in Epic 3.
   - Next candidate story: **E3-S1 — Implement ROMizer for class table/bytecode/native/static sections**.
 
+## 2026-04-22 — E3-S1 ROMizer for Class Table/Bytecode/Native/Static Sections
+- Story Selected: **E3-S1 — Implement ROMizer for class table/bytecode/native/static sections**.
+- Selection Rationale:
+  - Selected by strict epic/story priority order as the first incomplete story after Epic 2 completion.
+  - No dependency blocker existed: deterministic runtime/native symbol contracts were already in place from Epics 1 and 2.
+- Acceptance Checkpoints:
+  - Deterministic ROMizer emits one bounded binary artifact containing class table, bytecode pool, native table, and static data sections.
+  - Artifact format is explicit, documented, and loader-validated with fail-fast structural checks.
+  - Native method entries are linked to declared native bindings with deterministic mismatch failures.
+  - Determinism, boundary conditions, and corruption/negative paths are covered by deterministic tests.
+- Architecture Constraints Preserved:
+  - Static/romized loading model (no dynamic class loading at runtime).
+  - Deterministic, bounded capacities for classes/methods/bytecode/native/static sections.
+  - Safety-first explicit error codes and fail-fast validation behavior.
+  - Cooperative/runtime determinism preserved (host-side tooling only; no runtime scheduling changes).
+- Files Changed:
+  - `src/main/java/wioe5/runtime/DeterministicRomizer.java`
+  - `src/test/java/wioe5/runtime/DeterministicRomizerTest.java`
+  - `docs/runtime-romizer-format.md`
+  - `README.md`
+  - `plan/progress-tracking.md`
+  - `plan/implementation-notes.md`
+- Key Decisions and Tradeoffs:
+  - Implemented a fixed-layout binary format with contiguous sections and explicit offsets/lengths to keep runtime loading deterministic and low-overhead.
+  - Enforced deterministic sorting (class/method/native/static symbols) during romization so input ordering does not affect output bytes.
+  - Added self-validation pass after romization to ensure emitted artifacts satisfy loader constraints before being accepted.
+  - Used insertion-sort + bounded arrays and explicit capacities to align with constrained-system engineering principles.
+- Tests Added/Updated:
+  - Added `DeterministicRomizerTest` covering:
+    - deterministic output stability across permuted inputs
+    - positive-path validation metrics for class/method/native/static counts
+    - duplicate class rejection
+    - native binding mismatch rejection
+    - bytecode pool capacity overflow rejection
+    - duplicate static field rejection
+    - corrupt artifact magic rejection in validator
+  - Updated README validation matrix to include `DeterministicRomizerTest`.
+- Validation Results:
+  - `rm -rf build/test-classes && mkdir -p build/test-classes && javac -d build/test-classes $(find src/main/java -name '*.java' | sort) $(find src/test/java -name '*.java' | sort)` ✅
+  - `java -cp build/test-classes wioe5.runtime.RuntimeModuleRegistryTest` ✅
+  - `java -cp build/test-classes wioe5.runtime.BytecodeInterpreterModuleTest` ✅
+  - `java -cp build/test-classes wioe5.runtime.DeterministicFrameStackModuleTest` ✅
+  - `java -cp build/test-classes wioe5.runtime.DeterministicHeapManagerModuleTest` ✅
+  - `java -cp build/test-classes wioe5.runtime.DeterministicRomizerTest` ✅
+  - `java -cp build/test-classes wioe5.runtime.DeterministicPeripheralNativeModuleTest` ✅
+  - `java -cp build/test-classes wioe5.runtime.DeterministicPowerNativeModuleTest` ✅
+  - `java -cp build/test-classes wioe5.runtime.DeterministicLoRaNativeModuleTest` ✅
+  - `java -cp build/test-classes wioe5.runtime.DeterministicNvConfigNativeModuleTest` ✅
+  - `java -cp build/test-classes wioe5.runtime.VersionedNativeDispatchTableTest` ✅
+  - `java -cp build/test-classes wioe5.runtime.RuntimeStabilitySoakTest` ✅
+  - `parallel_validation`: Code Review ✅; CodeQL timed out on final run budget (earlier CodeQL runs for this slice were ✅ before minor follow-up edits).
+- DoD Evidence:
+  - ROMized artifact sections are implemented in `DeterministicRomizer` (`class table`, `bytecode pool`, `native table`, `static data`) with deterministic layout and explicit header contract.
+  - Artifact format + contract are documented in `docs/runtime-romizer-format.md`.
+  - Validation tooling exists in `DeterministicRomizer.validate(...)` and enforces structure, bounds, sorting, linkage, and corruption handling.
+  - Deterministic and negative-path evidence is provided by `DeterministicRomizerTest`.
+- Follow-ups / Risks:
+  - Next story E3-S2 should integrate deterministic build orchestration around this ROMizer output and lock toolchain-version reproducibility.
+  - Final CodeQL attempt timed out due validation budget; no security alerts were reported in earlier CodeQL runs before final small refactors.

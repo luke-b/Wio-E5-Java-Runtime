@@ -44,7 +44,7 @@ Production readiness is achieved when:
 
 | Story ID | Story | DoD | Status |
 |---|---|---|---|
-| E3-S1 | Implement ROMizer for class table/bytecode/native/static sections | ROMized artifact format matches runtime loader expectations and passes validation tools | ⬜ Not Started |
+| E3-S1 | Implement ROMizer for class table/bytecode/native/static sections | ROMized artifact format matches runtime loader expectations and passes validation tools | ✅ Completed |
 | E3-S2 | Deterministic build orchestration for Java + C outputs | Reproducible builds generate identical artifacts from same input/toolchain versions | ⬜ Not Started |
 | E3-S3 | Memory budget enforcement gates | Build fails when flash/sram thresholds are exceeded; reports include per-section usage | ⬜ Not Started |
 | E3-S4 | Developer onboarding build docs | End-to-end build/flash workflow is documented and repeatable on clean environment | ⬜ Not Started |
@@ -95,7 +95,7 @@ Production readiness is achieved when:
 | Milestone | Exit Criteria | Progress |
 |---|---|---|
 | M1: Runtime foundation complete | Epic 1 and core parts of Epic 2 green on target hardware | 0% |
-| M2: Build + native integration complete | Epic 2 and Epic 3 DoD achieved | 0% |
+| M2: Build + native integration complete | Epic 2 and Epic 3 DoD achieved | 40% |
 | M3: OTA + security baseline complete | Epic 4 and Epic 5 DoD achieved | 0% |
 | M4: Quality gates and operations complete | Epic 6 and Epic 7 DoD achieved | 0% |
 | M5: Production candidate | All epics accepted; release checklist fully signed off | 0% |
@@ -105,7 +105,7 @@ Production readiness is achieved when:
 |---|---|---|---|
 | Epic 1 — Runtime Core | TBD | ⬜ Not Started | 0% |
 | Epic 2 — Native Binding/HAL | TBD | ✅ Completed | 100% |
-| Epic 3 — ROMizer/Build | TBD | ⬜ Not Started | 0% |
+| Epic 3 — ROMizer/Build | TBD | 🟨 In Progress | 25% |
 | Epic 4 — OTA | TBD | ⬜ Not Started | 0% |
 | Epic 5 — Security | TBD | ⬜ Not Started | 0% |
 | Epic 6 — Verification/CI | TBD | ⬜ Not Started | 0% |
