@@ -2,7 +2,7 @@
 
 ## Current Sprint / Iteration
 - Date: 2026-04-22
-- Current Story: E2-S5 — Implement `wioe5.storage.NVConfig` with wear-aware writes
+- Current Story: E2-S3 (hardening pass) — Production-harden `wioe5.io.GPIO`, `wioe5.bus.I2C`, `wioe5.bus.UART` natives
 - Status: Completed
 
 ## Story Execution Log
@@ -19,6 +19,8 @@
 | 2026-04-22 | Epic 2 — Native Binding/HAL | E2-S3 | Implement `wioe5.io.GPIO`, `wioe5.bus.I2C`, `wioe5.bus.UART` natives | Completed | Pass | `javac` compile of main+test sources passed.<br>`RuntimeModuleRegistryTest` passed.<br>`BytecodeInterpreterModuleTest` passed.<br>`DeterministicFrameStackModuleTest` passed.<br>`DeterministicHeapManagerModuleTest` passed.<br>`DeterministicPeripheralNativeModuleTest` passed.<br>`DeterministicPowerNativeModuleTest` passed.<br>`VersionedNativeDispatchTableTest` passed.<br>`RuntimeStabilitySoakTest` passed. | None | Added deterministic peripheral native module for GPIO/I2C/UART with standardized return codes, loopback-capable validation seams, and native-dispatch handlers for peripheral symbol indexes. |
 | 2026-04-22 | Epic 2 — Native Binding/HAL | E2-S4 | Implement `wioe5.lora.LoRaWAN` natives and process loop contract | Completed | Pass | `javac` compile of main+test sources passed.<br>`RuntimeModuleRegistryTest` passed.<br>`BytecodeInterpreterModuleTest` passed.<br>`DeterministicFrameStackModuleTest` passed.<br>`DeterministicHeapManagerModuleTest` passed.<br>`DeterministicPeripheralNativeModuleTest` passed.<br>`DeterministicPowerNativeModuleTest` passed.<br>`DeterministicLoRaNativeModuleTest` passed.<br>`VersionedNativeDispatchTableTest` passed.<br>`RuntimeStabilitySoakTest` passed. | None | Added deterministic LoRaWAN native module with cooperative process-loop state machine, packet-loss/duty-cycle gating, downlink/radio-metric flow, and dispatch handlers for LoRa symbol indexes 10..20. |
 | 2026-04-22 | Epic 2 — Native Binding/HAL | E2-S5 | Implement `wioe5.storage.NVConfig` with wear-aware writes | Completed | Pass | `rm -rf build/test-classes && mkdir -p build/test-classes && javac -d build/test-classes $(find src/main/java -name '*.java' | sort) $(find src/test/java -name '*.java' | sort)` passed.<br>`RuntimeModuleRegistryTest` passed.<br>`BytecodeInterpreterModuleTest` passed.<br>`DeterministicFrameStackModuleTest` passed.<br>`DeterministicHeapManagerModuleTest` passed.<br>`DeterministicPeripheralNativeModuleTest` passed.<br>`DeterministicPowerNativeModuleTest` passed.<br>`DeterministicLoRaNativeModuleTest` passed.<br>`DeterministicNvConfigNativeModuleTest` passed.<br>`VersionedNativeDispatchTableTest` passed.<br>`RuntimeStabilitySoakTest` passed.<br>`parallel_validation` (Code Review + CodeQL) passed. | None | Added deterministic NVConfig native module with fixed-capacity wear-aware slot rotation, CRC-backed integrity checks, reset-survivable flash-sector model, and dispatch handlers for symbol indexes 32..33. |
+
+| 2026-04-22 | Epic 2 — Native Binding/HAL | E2-S3 (hardening) | Production-harden `wioe5.io.GPIO`, `wioe5.bus.I2C`, `wioe5.bus.UART` natives | Completed | Pass | Full compile + all 10 harness tests passed (see notes entry). | None | Added 4 hardening test methods (~45 new assertions), rewrote peripheral doc with complete contract/error-matrix/dispatch-table/pin-map. |
 
 ## Epic Progress Snapshot
 | Epic | Status | Completion | Last Updated |
