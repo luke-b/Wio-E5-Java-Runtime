@@ -338,3 +338,52 @@
   - This slice is host-side deterministic verification; physical pin mux/electrical timing and real sensor bus behavior still require board-level HIL execution.
   - Dispatch handle marshalling is a bounded host validation seam and will need ROMizer/runtime ABI alignment in Epic 3.
   - Next candidate story: **E2-S4 — Implement `wioe5.lora.LoRaWAN` natives and process loop contract**.
+
+## 2026-04-22 — E2-S4 `wioe5.lora.LoRaWAN` Natives and Process Loop Contract
+- Story Selected: **E2-S4 — Implement `wioe5.lora.LoRaWAN` natives and process loop contract**.
+- Selection Rationale:
+  - Selected by strict epic/story priority order as the first incomplete story after E2-S3 completion.
+  - No dependency blocker existed because stable native symbol mapping and deterministic native-handler patterns were already established.
+- Acceptance Checkpoints:
+  - Deterministic LoRaWAN API behavior exists for `init/join/send/process/status/readDownlink/setTxPower/setADR/getLastRSSI/getLastSNR`.
+  - Cooperative `process()` contract drives join completion, TX progression, packet-loss retries, duty-cycle gating, and RX-pending transitions without hidden asynchronous state jumps.
+  - Native dispatch handlers are wired for LoRa symbol indexes (`10..20`) with explicit argument and handle validation failures.
+- Files Changed:
+  - `src/main/java/wioe5/runtime/DeterministicLoRaNativeModule.java`
+  - `src/test/java/wioe5/runtime/DeterministicLoRaNativeModuleTest.java`
+  - `docs/runtime-lorawan-native-module.md`
+  - `docs/runtime-module-boundaries.md`
+  - `README.md`
+  - `plan/progress-tracking.md`
+  - `plan/implementation-notes.md`
+- Key Decisions and Tradeoffs:
+  - Implemented a deterministic state machine with explicit statuses (`IDLE/JOINING/JOINED/TX_BUSY/RX_PENDING`) advanced only through `process()` to preserve cooperative scheduling semantics and avoid hidden non-determinism.
+  - Added packet-loss and duty-cycle budgets as fixed-state controls for host-side validation so join/send reliability constraints can be tested without introducing wall-clock/hardware variability.
+  - Used fixed-capacity dispatch handle registries for `byte[]` and `int[]` arguments to support `join/send/readDownlink` marshaling while preserving bounded memory behavior.
+- Tests Added/Updated:
+  - Added `DeterministicLoRaNativeModuleTest` covering:
+    - join progression under packet loss and explicit `process()` ticks
+    - send busy-state and duty-cycle restriction behavior
+    - downlink read flow with port-out and radio metric propagation
+    - dispatch-path integration for LoRa native symbol indexes `10..20`
+    - negative paths for region/key-length/payload/port/tx-power/invalid handle failures
+  - Updated `README.md` validation commands and repository layout/test list to include `DeterministicLoRaNativeModuleTest` and LoRa module documentation.
+- Validation Results:
+  - `rm -rf build/test-classes && mkdir -p build/test-classes && javac -d build/test-classes $(find src/main/java -name '*.java' | sort) $(find src/test/java -name '*.java' | sort)` ✅
+  - `java -cp build/test-classes wioe5.runtime.RuntimeModuleRegistryTest` ✅
+  - `java -cp build/test-classes wioe5.runtime.BytecodeInterpreterModuleTest` ✅
+  - `java -cp build/test-classes wioe5.runtime.DeterministicFrameStackModuleTest` ✅
+  - `java -cp build/test-classes wioe5.runtime.DeterministicHeapManagerModuleTest` ✅
+  - `java -cp build/test-classes wioe5.runtime.DeterministicPeripheralNativeModuleTest` ✅
+  - `java -cp build/test-classes wioe5.runtime.DeterministicPowerNativeModuleTest` ✅
+  - `java -cp build/test-classes wioe5.runtime.DeterministicLoRaNativeModuleTest` ✅
+  - `java -cp build/test-classes wioe5.runtime.VersionedNativeDispatchTableTest` ✅
+  - `java -cp build/test-classes wioe5.runtime.RuntimeStabilitySoakTest` ✅
+- DoD Evidence:
+  - LoRaWAN native behavior and process-loop contract are implemented in `DeterministicLoRaNativeModule` with explicit return-code handling for readiness, busy, duty-cycle, and validation failures.
+  - Dispatch-level LoRa mapping coverage (`10..20`) is implemented by `createDefaultDispatchHandlers()` and verified by `DeterministicLoRaNativeModuleTest#testDispatchIntegration`.
+  - Packet-loss and duty-cycle resiliency behavior is verified by deterministic assertions in `testJoinSendAndProcessContract`, including retry-driven `TX_BUSY` persistence and post-cooldown send recovery.
+- Follow-ups / Risks:
+  - This slice is host-side deterministic verification; true radio timing/duty-cycle enforcement and packet-loss behavior on STM32CubeWL must still be confirmed in HIL.
+  - Dispatch handle marshalling is a bounded seam and remains dependent on ROMizer/native ABI alignment in Epic 3.
+  - Next candidate story: **E2-S5 — Implement `wioe5.storage.NVConfig` with wear-aware writes**.
