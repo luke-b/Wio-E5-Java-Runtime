@@ -29,6 +29,10 @@ This document defines the runtime-core module boundaries required by the archite
     - `DeterministicPeripheralNativeModule` provides deterministic host-side
       implementations for GPIO/I2C/UART native methods with standardized
       failure codes and dispatch handlers for peripheral-native indexes.
+    - `DeterministicLoRaNativeModule` provides deterministic host-side
+      implementations for LoRaWAN join/send/process/downlink behavior with
+      packet-loss and duty-cycle-safe process-loop semantics plus dispatch
+      handlers for LoRa native indexes.
 
 5. **RuntimeModuleRegistry**
    - Owns immutable runtime wiring and integration-point validation.
